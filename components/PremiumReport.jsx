@@ -6,10 +6,8 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
   Copy,
-  Download,
   FileText,
   CheckCircle,
-  AlertCircle,
   DollarSign,
   Target,
   Zap,
@@ -23,8 +21,7 @@ import {
   Hash,
   Users,
   MessageCircle,
-  BarChart3,
-  Info
+  BarChart3
 } from 'lucide-react';
 import {
   BarChart,
@@ -38,16 +35,13 @@ import {
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPER: Format price with commas
+// HELPERS
 // ============================================================
 const formatPrice = (num) => {
   if (num === undefined || num === null) return '0';
   return Number(num).toLocaleString('en-US');
 };
 
-// ============================================================
-// HELPER: Get currency symbol
-// ============================================================
 const getSymbol = (currency) => {
   const map = {
     USD: '$',
@@ -87,7 +81,7 @@ const MetricCard = ({ label, value, max = 10, color = '#2dd4bf' }) => {
 };
 
 // ============================================================
-// MAIN REPORT COMPONENT
+// MAIN COMPONENT
 // ============================================================
 export default function PremiumReport({ data }) {
   const reportRef = useRef(null);
@@ -124,12 +118,7 @@ export default function PremiumReport({ data }) {
       price: Math.round((calc.avgPrice || 50) * (0.8 + i * 0.1))
     })) || [{ name: 'Avg Price', price: calc.avgPrice || 50 }];
 
-  const getActionColor = () => {
-    if (actionScore >= 70) return '#34d399';
-    if (actionScore >= 50) return '#f59e0b';
-    return '#ef4444';
-  };
-  const actionColor = getActionColor();
+  const actionColor = actionScore >= 70 ? '#34d399' : actionScore >= 50 ? '#f59e0b' : '#ef4444';
 
   // ========== PDF DOWNLOAD ==========
   const downloadPDF = async () => {
@@ -138,7 +127,7 @@ export default function PremiumReport({ data }) {
       toast.error('Report not ready!');
       return;
     }
-    toast.loading('Generating high-quality PDF...', { id: 'pdf' });
+    toast.loading('Generating PDF...', { id: 'pdf' });
     try {
       const canvas = await html2canvas(element, {
         scale: 2.5,
@@ -173,18 +162,9 @@ export default function PremiumReport({ data }) {
     }
   };
 
-  // ========== COPY / EXPORT ==========
+  // ========== COPY CSV / JSON ==========
   const copyCSV = () => {
-    const headers = [
-      'Product',
-      'Market',
-      'Score',
-      'Price',
-      'Profit',
-      'ROI',
-      'Competitors',
-      'Verdict'
-    ];
+    const headers = ['Product', 'Market', 'Score', 'Price', 'Profit', 'ROI', 'Competitors', 'Verdict'];
     const row = [
       data.productName,
       data.market,
@@ -206,7 +186,7 @@ export default function PremiumReport({ data }) {
 
   return (
     <div ref={reportRef} className="max-w-6xl mx-auto mt-10 space-y-6 p-2 bg-[#080B12]">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2dd4bf]/10 pb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-white">{data.productName}</h2>
@@ -218,28 +198,19 @@ export default function PremiumReport({ data }) {
           </span>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={copyCSV}
-            className="text-xs bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/20 flex items-center gap-1 text-gray-300 font-mono transition"
-          >
+          <button onClick={copyCSV} className="text-xs bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/20 flex items-center gap-1 text-gray-300 font-mono transition">
             <Copy size={12} /> CSV
           </button>
-          <button
-            onClick={copyJSON}
-            className="text-xs bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/20 flex items-center gap-1 text-gray-300 font-mono transition"
-          >
+          <button onClick={copyJSON} className="text-xs bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/20 flex items-center gap-1 text-gray-300 font-mono transition">
             <Copy size={12} /> JSON
           </button>
-          <button
-            onClick={downloadPDF}
-            className="text-xs bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] hover:opacity-80 px-4 py-1.5 rounded-lg flex items-center gap-1 text-black font-bold shadow-lg shadow-[#2dd4bf]/20 transition"
-          >
+          <button onClick={downloadPDF} className="text-xs bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] hover:opacity-80 px-4 py-1.5 rounded-lg flex items-center gap-1 text-black font-bold shadow-lg shadow-[#2dd4bf]/20 transition">
             <FileText size={14} /> PDF
           </button>
         </div>
       </div>
 
-      {/* Action Score + Verdict */}
+      {/* ACTION SCORE */}
       <div className="cyber-card rounded-2xl p-6 border-l-4 flex flex-wrap items-center justify-between gap-6" style={{ borderLeftColor: actionColor }}>
         <div className="flex items-center gap-6">
           <div className="relative w-24 h-24 flex-shrink-0">
@@ -261,28 +232,20 @@ export default function PremiumReport({ data }) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold" style={{ color: actionColor }}>
-                {actionScore}%
-              </span>
+              <span className="text-2xl font-bold" style={{ color: actionColor }}>{actionScore}%</span>
               <span className="text-[8px] text-gray-400 uppercase tracking-wider">Score</span>
             </div>
           </div>
           <div>
             <p className="text-xs text-gray-500 font-mono">ACTION SCORE</p>
-            <p className="text-xl font-bold" style={{ color: actionColor }}>
-              {actionLabel}
-            </p>
-            <p className="text-sm text-gray-400 max-w-md truncate">
-              {data.executiveSummary || 'Analysis complete.'}
-            </p>
+            <p className="text-xl font-bold" style={{ color: actionColor }}>{actionLabel}</p>
+            <p className="text-sm text-gray-400 max-w-md truncate">{data.executiveSummary || 'Analysis complete.'}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <div className="text-right">
             <p className="text-xs text-gray-500">Est. Sales</p>
-            <p className="text-lg font-bold text-[#2dd4bf]">
-              {data.estimatedMonthlySales || 'N/A'}+
-            </p>
+            <p className="text-lg font-bold text-[#2dd4bf]">{data.estimatedMonthlySales || 'N/A'}+</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-500">Risk</p>
@@ -291,19 +254,15 @@ export default function PremiumReport({ data }) {
           <div className="text-right">
             <p className="text-xs text-gray-500">Trend</p>
             <p className="text-lg font-bold">
-              {data.trendDirection === 'Rising' && (
-                <TrendingUp size={20} className="text-green-400 inline" />
-              )}
-              {data.trendDirection === 'Falling' && (
-                <TrendingDown size={20} className="text-red-400 inline" />
-              )}
+              {data.trendDirection === 'Rising' && <TrendingUp size={20} className="text-green-400 inline" />}
+              {data.trendDirection === 'Falling' && <TrendingDown size={20} className="text-red-400 inline" />}
               {!data.trendDirection && <Minus size={20} className="text-gray-400 inline" />}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Competitor Intel + Price Chart */}
+      {/* COMPETITOR INTEL + CHART */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="cyber-card rounded-2xl p-6">
           <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
@@ -313,40 +272,25 @@ export default function PremiumReport({ data }) {
             <div>
               <p className="text-xs text-gray-500 font-mono">Product</p>
               <p className="text-lg font-bold text-white">{data.productName}</p>
-              <p className="text-2xl font-bold text-[#2dd4bf] mt-1">
-                {symbol}
-                {formatPrice(calc.recommendedPrice)}
-              </p>
-              <p className="text-xs text-gray-500 font-mono mt-1">
-                {comp.dominantBrands?.join(' • ') || 'Top Brands'}
-              </p>
+              <p className="text-2xl font-bold text-[#2dd4bf] mt-1">{symbol}{formatPrice(calc.recommendedPrice)}</p>
+              <p className="text-xs text-gray-500 font-mono mt-1">{comp.dominantBrands?.join(' • ') || 'Top Brands'}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
               <div>
-                <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
-                  <Truck size={12} /> Est. Shipping
-                </p>
+                <p className="text-xs text-gray-500 font-mono flex items-center gap-1"><Truck size={12} /> Est. Shipping</p>
                 <p className="text-sm font-mono text-gray-300">
-                  {symbol}
-                  {formatPrice(calc.avgPrice ? Math.round(calc.avgPrice * 0.05) : 10)}-
-                  {symbol}
-                  {calc.avgPrice ? Math.round(calc.avgPrice * 0.1) : 20}
+                  {symbol}{formatPrice(calc.avgPrice ? Math.round(calc.avgPrice * 0.05) : 10)}-
+                  {symbol}{calc.avgPrice ? Math.round(calc.avgPrice * 0.1) : 20}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-mono">Competitors</p>
-                <p className="text-2xl font-bold text-white">
-                  {calc.filteredCompetitorCount || 0}
-                </p>
-                <p className="text-[10px] text-gray-500">
-                  {calc.rawCompetitorCount || 0} total, outliers removed
-                </p>
+                <p className="text-2xl font-bold text-white">{calc.filteredCompetitorCount || 0}</p>
+                <p className="text-[10px] text-gray-500">{calc.rawCompetitorCount || 0} total, outliers removed</p>
               </div>
             </div>
             <div className="p-3 bg-[#0F172A] rounded-xl border-l-2 border-[#a78bfa]">
-              <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
-                <Target size={12} /> Market Gap
-              </p>
+              <p className="text-xs text-gray-500 font-mono flex items-center gap-1"><Target size={12} /> Market Gap</p>
               <p className="text-sm text-gray-300">{data.marketGap?.description || 'Stable'}</p>
             </div>
           </div>
@@ -360,22 +304,11 @@ export default function PremiumReport({ data }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} layout="vertical">
                 <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fill: '#94a3b8', fontSize: 10 }}
-                  width={60}
-                />
-                <Tooltip
-                  formatter={(value) => `${symbol}${formatPrice(value)}`}
-                  contentStyle={{ background: '#0F172A', border: '1px solid #2dd4bf20' }}
-                />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={60} />
+                <Tooltip formatter={(value) => `${symbol}${formatPrice(value)}`} contentStyle={{ background: '#0F172A', border: '1px solid #2dd4bf20' }} />
                 <Bar dataKey="price" fill="#2dd4bf" radius={4}>
                   {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.price > calc.avgPrice ? '#2dd4bf' : '#a78bfa'}
-                    />
+                    <Cell key={`cell-${index}`} fill={entry.price > calc.avgPrice ? '#2dd4bf' : '#a78bfa'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -387,22 +320,11 @@ export default function PremiumReport({ data }) {
             <span>Max: {symbol}{formatPrice(calc.maxPrice)}</span>
           </div>
           <div className="mt-4">
-            <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
-              <MessageCircle size={12} /> Sentiment
-            </p>
+            <p className="text-xs text-gray-500 font-mono flex items-center gap-1"><MessageCircle size={12} /> Sentiment</p>
             <div className="flex h-4 rounded-full overflow-hidden mt-1">
-              <div
-                className="bg-green-500"
-                style={{ width: `${sentiment.positive || 60}%` }}
-              />
-              <div
-                className="bg-yellow-500"
-                style={{ width: `${sentiment.neutral || 25}%` }}
-              />
-              <div
-                className="bg-red-500"
-                style={{ width: `${sentiment.negative || 15}%` }}
-              />
+              <div className="bg-green-500" style={{ width: `${sentiment.positive || 60}%` }} />
+              <div className="bg-yellow-500" style={{ width: `${sentiment.neutral || 25}%` }} />
+              <div className="bg-red-500" style={{ width: `${sentiment.negative || 15}%` }} />
             </div>
             <div className="flex justify-between text-[10px] text-gray-500 mt-0.5">
               <span>👍 {sentiment.positive || 60}%</span>
@@ -413,7 +335,7 @@ export default function PremiumReport({ data }) {
         </div>
       </div>
 
-      {/* V5.0 ADV DATA + Profit/ROI */}
+      {/* V5.0 ADV DATA + PROFIT/ROI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="cyber-card rounded-2xl p-6 md:col-span-2">
           <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
@@ -434,18 +356,13 @@ export default function PremiumReport({ data }) {
           <div className="space-y-4">
             <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
               <p className="text-xs text-gray-500 font-mono">Profit (Real)</p>
-              <p
-                className={`text-2xl font-bold ${calc.profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}
-              >
-                {symbol}
-                {formatPrice(calc.profit)}
+              <p className={`text-2xl font-bold ${calc.profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
+                {symbol}{formatPrice(calc.profit)}
               </p>
             </div>
             <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
               <p className="text-xs text-gray-500 font-mono">ROI (Real)</p>
-              <p
-                className={`text-2xl font-bold ${calc.roi > 50 ? 'text-[#34d399]' : calc.roi > 20 ? 'text-yellow-400' : 'text-red-400'}`}
-              >
+              <p className={`text-2xl font-bold ${calc.roi > 50 ? 'text-[#34d399]' : calc.roi > 20 ? 'text-yellow-400' : 'text-red-400'}`}>
                 {calc.roi || 0}%
               </p>
             </div>
@@ -461,41 +378,53 @@ export default function PremiumReport({ data }) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
-              <Users size={12} /> Demographic
-            </h4>
+            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1"><Users size={12} /> Demographic</h4>
             <p className="text-sm text-white mt-1">{playbook.targetDemographic || 'General'}</p>
           </div>
 
           <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
-              <Sparkles size={12} /> Ad Headlines
-            </h4>
+            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1"><Sparkles size={12} /> Ad Headlines</h4>
             <ul className="list-disc list-inside text-sm text-gray-300 mt-1 space-y-0.5">
               {playbook.adHeadlines?.map((h, i) => <li key={i}>{h}</li>) || <li>N/A</li>}
             </ul>
           </div>
 
           <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
-              <Target size={12} /> Interests & Communities
-            </h4>
+            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1"><Target size={12} /> Interests & Communities</h4>
             <div className="flex flex-wrap gap-1 mt-1">
               {playbook.facebookInterests?.map((i, idx) => (
-                <span
-                  key={idx}
-                  className="text-[10px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20"
-                >
-                  {i}
-                </span>
+                <span key={idx} className="text-[10px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20">{i}</span>
               )) || <span className="text-xs text-gray-500">N/A</span>}
             </div>
-            <p className="text-sm text-purple-400 mt-2">
-              r/{playbook.redditCommunities?.join(', r/') || 'N/A'}
-            </p>
+            <p className="text-sm text-purple-400 mt-2">r/{playbook.redditCommunities?.join(', r/') || 'N/A'}</p>
           </div>
         </div>
 
         {/* Advanced Insights */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#2dd4bf]/10">
-    
+          <div>
+            <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Truck size={12} /> Supplier Suggestion</p>
+            <p className="text-xs text-white">{adv.supplierSuggestion || 'AliExpress'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Calendar size={12} /> Seasonality</p>
+            <p className="text-xs text-white">{adv.seasonality || 'Year-round'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Hash size={12} /> Top Keywords</p>
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {adv.topKeywords?.map((kw, i) => (
+                <span key={i} className="text-[10px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">{kw}</span>
+              )) || <span className="text-xs text-gray-500">N/A</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="text-center text-[10px] text-gray-600 font-mono border-t border-[#2dd4bf]/10 pt-4">
+        PROFITFORGE v5.0 · Real Data · Powered by SerpAPI + Groq
+      </div>
+    </div>
+  );
+}

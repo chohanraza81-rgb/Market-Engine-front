@@ -2,11 +2,24 @@
   "name": "market-engine-frontend",
   "version": "5.0.0",
   "private": true,
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
   "dependencies": {
-    "next": "14.2.3", "react": "^18.3.1", "react-dom": "^18.3.1",
-    "axios": "^1.6.2", "framer-motion": "^10.16.4", "lucide-react": "^0.263.1",
-    "react-hot-toast": "^2.4.1", "recharts": "^2.8.0",
-    "tailwindcss": "^3.3.0", "autoprefixer": "^10.4.14", "postcss": "^8.4.31"
+    "next": "14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "axios": "^1.6.2",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.263.1",
+    "react-hot-toast": "^2.4.1",
+    "recharts": "^2.8.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.31",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1"
   }
 }

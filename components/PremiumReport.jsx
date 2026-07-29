@@ -60,7 +60,7 @@ const getSymbol = (currency) => {
 };
 
 // ============================================================
-// METRIC CARD (Market Heat, Ad Strength, etc.)
+// METRIC CARD
 // ============================================================
 const MetricCard = ({ label, value, max = 10, color = '#2dd4bf' }) => {
   const percentage = Math.min(100, (value / max) * 100);
@@ -92,10 +92,8 @@ const MetricCard = ({ label, value, max = 10, color = '#2dd4bf' }) => {
 export default function PremiumReport({ data }) {
   const reportRef = useRef(null);
 
-  // --- Guard clause ---
   if (!data) return null;
 
-  // --- Extract data ---
   const calc = data.calculatedMetrics || {};
   const adv = data.advancedInsights || {};
   const comp = data.competitionAnalysis || {};
@@ -109,7 +107,6 @@ export default function PremiumReport({ data }) {
   const actionLabel = data.actionLabel || 'Test Waters';
   const isHigh = actionScore >= 70;
 
-  // --- Derived metrics for the 4 cards ---
   const marketHeat = Math.min(10, Math.round((actionScore / 100) * 10));
   const adStrength = Math.min(10, Math.round(((sentiment.positive || 60) / 100) * 10));
   const profitMargin = Math.min(
@@ -121,14 +118,12 @@ export default function PremiumReport({ data }) {
     Math.round(data.trendDirection === 'Rising' ? 8 : data.trendDirection === 'Falling' ? 4 : 6)
   );
 
-  // --- Price Spread Chart Data ---
   const chartData =
     comp.dominantBrands?.slice(0, 5).map((brand, i) => ({
       name: brand.length > 12 ? brand.slice(0, 10) + '..' : brand,
       price: Math.round((calc.avgPrice || 50) * (0.8 + i * 0.1))
     })) || [{ name: 'Avg Price', price: calc.avgPrice || 50 }];
 
-  // --- Colors for Action Score ---
   const getActionColor = () => {
     if (actionScore >= 70) return '#34d399';
     if (actionScore >= 50) return '#f59e0b';
@@ -136,9 +131,7 @@ export default function PremiumReport({ data }) {
   };
   const actionColor = getActionColor();
 
-  // ============================================================
-  // PDF DOWNLOAD (HQ)
-  // ============================================================
+  // ========== PDF DOWNLOAD ==========
   const downloadPDF = async () => {
     const element = reportRef.current;
     if (!element) {
@@ -180,9 +173,7 @@ export default function PremiumReport({ data }) {
     }
   };
 
-  // ============================================================
-  // COPY / EXPORT
-  // ============================================================
+  // ========== COPY / EXPORT ==========
   const copyCSV = () => {
     const headers = [
       'Product',
@@ -213,12 +204,9 @@ export default function PremiumReport({ data }) {
     toast.success('JSON copied!');
   };
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   return (
     <div ref={reportRef} className="max-w-6xl mx-auto mt-10 space-y-6 p-2 bg-[#080B12]">
-      {/* ========== HEADER ========== */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2dd4bf]/10 pb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-white">{data.productName}</h2>
@@ -251,10 +239,9 @@ export default function PremiumReport({ data }) {
         </div>
       </div>
 
-      {/* ========== ROW 1: ACTION SCORE + VERDICT ========== */}
+      {/* Action Score + Verdict */}
       <div className="cyber-card rounded-2xl p-6 border-l-4 flex flex-wrap items-center justify-between gap-6" style={{ borderLeftColor: actionColor }}>
         <div className="flex items-center gap-6">
-          {/* Gauge */}
           <div className="relative w-24 h-24 flex-shrink-0">
             <svg className="w-24 h-24 transform -rotate-90">
               <circle cx="48" cy="48" r="40" stroke="#1e293b" strokeWidth="8" fill="none" />
@@ -316,9 +303,8 @@ export default function PremiumReport({ data }) {
         </div>
       </div>
 
-      {/* ========== ROW 2: COMPETITOR INTEL + PRICE CHART ========== */}
+      {/* Competitor Intel + Price Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT: Competitor Info */}
         <div className="cyber-card rounded-2xl p-6">
           <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
             <Eye size={14} /> COMPETITOR INTEL
@@ -335,8 +321,6 @@ export default function PremiumReport({ data }) {
                 {comp.dominantBrands?.join(' • ') || 'Top Brands'}
               </p>
             </div>
-
-            {/* Hidden Cost (Removed from AI, but we can show static info) */}
             <div className="grid grid-cols-2 gap-4 bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
               <div>
                 <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
@@ -359,8 +343,6 @@ export default function PremiumReport({ data }) {
                 </p>
               </div>
             </div>
-
-            {/* Market Gap */}
             <div className="p-3 bg-[#0F172A] rounded-xl border-l-2 border-[#a78bfa]">
               <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
                 <Target size={12} /> Market Gap
@@ -370,7 +352,6 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* RIGHT: Price Spread Chart + Sentiment */}
         <div className="cyber-card rounded-2xl p-6">
           <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
             <BarChart3 size={14} /> PRICE SPREAD
@@ -405,8 +386,6 @@ export default function PremiumReport({ data }) {
             <span>Avg: {symbol}{formatPrice(calc.avgPrice)}</span>
             <span>Max: {symbol}{formatPrice(calc.maxPrice)}</span>
           </div>
-
-          {/* Sentiment Bar */}
           <div className="mt-4">
             <p className="text-xs text-gray-500 font-mono flex items-center gap-1">
               <MessageCircle size={12} /> Sentiment
@@ -434,7 +413,7 @@ export default function PremiumReport({ data }) {
         </div>
       </div>
 
-      {/* ========== ROW 3: V5.0 ADV DATA (4 Metrics + Profit/ROI) ========== */}
+      {/* V5.0 ADV DATA + Profit/ROI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="cyber-card rounded-2xl p-6 md:col-span-2">
           <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
@@ -474,14 +453,13 @@ export default function PremiumReport({ data }) {
         </div>
       </div>
 
-      {/* ========== ROW 4: MINING STRATEGY ========== */}
+      {/* MINING STRATEGY */}
       <div className="cyber-card rounded-2xl p-6">
         <div className="flex items-center gap-2 text-xs text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
           <Target size={14} /> MINING STRATEGY
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Demographic */}
           <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
             <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
               <Users size={12} /> Demographic
@@ -489,10 +467,35 @@ export default function PremiumReport({ data }) {
             <p className="text-sm text-white mt-1">{playbook.targetDemographic || 'General'}</p>
           </div>
 
-          {/* Ad Headlines */}
           <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
             <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
               <Sparkles size={12} /> Ad Headlines
             </h4>
             <ul className="list-disc list-inside text-sm text-gray-300 mt-1 space-y-0.5">
-              {playbook.adHeadlines?.map((h, i) => <li key={i}>{h}</li>) || <li>N/A<
+              {playbook.adHeadlines?.map((h, i) => <li key={i}>{h}</li>) || <li>N/A</li>}
+            </ul>
+          </div>
+
+          <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+            <h4 className="text-xs text-gray-500 font-mono flex items-center gap-1">
+              <Target size={12} /> Interests & Communities
+            </h4>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {playbook.facebookInterests?.map((i, idx) => (
+                <span
+                  key={idx}
+                  className="text-[10px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20"
+                >
+                  {i}
+                </span>
+              )) || <span className="text-xs text-gray-500">N/A</span>}
+            </div>
+            <p className="text-sm text-purple-400 mt-2">
+              r/{playbook.redditCommunities?.join(', r/') || 'N/A'}
+            </p>
+          </div>
+        </div>
+
+        {/* Advanced Insights */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#2dd4bf]/10">
+    

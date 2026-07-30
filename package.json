@@ -1,11 +1,16 @@
 {
-  "name": "market-engine-frontend",
-  "version": "5.0.0",
+  "name": "profitforge-frontend",
+  "version": "6.0.0",
+  "description": "PROFITFORGE Pro - Market Intelligence Platform (Frontend)",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write .",
+    "analyze": "ANALYZE=true next build",
+    "export": "next export"
   },
   "dependencies": {
     "next": "14.2.3",
@@ -20,6 +25,53 @@
     "autoprefixer": "^10.4.14",
     "postcss": "^8.4.31",
     "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.1"
-  }
+    "jspdf": "^2.5.1",
+    "react-select": "^5.8.0",
+    "react-query": "^3.39.3",
+    "date-fns": "^2.30.0",
+    "react-hook-form": "^7.48.2",
+    "zod": "^3.22.4",
+    "@hookform/resolvers": "^3.3.2",
+    "react-helmet-async": "^2.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.39",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "14.2.3",
+    "prettier": "^3.1.0",
+    "prettier-plugin-tailwindcss": "^0.5.9",
+    "typescript": "^5.3.2",
+    "@next/bundle-analyzer": "^14.2.3"
+  },
+  "keywords": [
+    "profitforge",
+    "market-intelligence",
+    "seo-engine",
+    "e-commerce",
+    "dropshipping",
+    "affiliate-marketing",
+    "data-hack",
+    "nextjs",
+    "tailwindcss"
+  ],
+  "author": "PROFITFORGE Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/profitforge-frontend"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "browserslist": [
+    "defaults",
+    "not ie <= 11",
+    "not op_mini all",
+    "not dead"
+  ]
 }

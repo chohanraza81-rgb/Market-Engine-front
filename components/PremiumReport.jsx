@@ -45,7 +45,7 @@ import {
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS (with safety checks)
+// HELPERS
 // ============================================================
 const formatPrice = (num) => {
   if (num === undefined || num === null || isNaN(num)) return '0';
@@ -138,10 +138,8 @@ const MetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon }) =
 export default function PremiumReport({ data }) {
   const reportRef = useRef(null);
 
-  // ✅ SAFETY: If no data, return null
   if (!data) return null;
 
-  // ✅ SAFETY: Safely extract data with fallbacks
   const calc = data.calculatedMetrics || {};
   const adv = data.advancedInsights || {};
   const comp = data.competitionAnalysis || {};
@@ -167,7 +165,6 @@ export default function PremiumReport({ data }) {
 
   const actionColor = actionScore >= 70 ? '#34d399' : actionScore >= 50 ? '#f59e0b' : '#ef4444';
 
-  // ✅ SAFETY: Chart data with fallback
   const chartData = comp.dominantBrands?.slice(0, 6).map((brand, i) => ({
     name: brand.length > 12 ? brand.slice(0, 10) + '..' : brand,
     price: Math.round((calc.avgPrice || 50) * (0.75 + i * 0.08))

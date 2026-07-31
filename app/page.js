@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Search, Globe, Loader2, Zap } from 'lucide-react';
@@ -28,22 +28,22 @@ export default function Home() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    if (!product.trim()) return;
+
+    setLoading(true);
+    setError('');
+    setReport(null);
+    setSeoReport(null);
+    setLogs([]);
 
     if (activeEngine === 'datahack') {
-      if (!product.trim()) return;
       await handleDataHackSearch();
     } else {
-      if (!product.trim()) return;
       await handleSEOSearch();
     }
   };
 
   const handleDataHackSearch = async () => {
-    setLoading(true);
-    setError('');
-    setReport(null);
-    setLogs([]);
-
     addLog(`Initiating deep scan for "${product}"...`, 'start');
     await new Promise(r => setTimeout(r, 400));
     addLog(`Connecting to SerpAPI (${country.toUpperCase()} market)...`, 'info');
@@ -79,11 +79,6 @@ export default function Home() {
   };
 
   const handleSEOSearch = async () => {
-    setLoading(true);
-    setError('');
-    setSeoReport(null);
-    setLogs([]);
-
     addLog(`Generating SEO strategy for "${product}"...`, 'start');
     await new Promise(r => setTimeout(r, 400));
     addLog(`Connecting to Groq AI (${country.toUpperCase()} market)...`, 'info');
@@ -118,7 +113,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      {/* Header */}
+      {/* ========== HEADER (No duplicate selector here) ========== */}
       <div className="flex justify-between items-center mb-6 border-b border-[#2dd4bf]/10 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#2dd4bf]/10 flex items-center justify-center border border-[#2dd4bf]/30">
@@ -130,7 +125,7 @@ export default function Home() {
         <LiveStatus />
       </div>
 
-      {/* Engine Selector */}
+      {/* ========== ENGINE SELECTOR (Only once) ========== */}
       <div className="mb-8">
         <SearchEngineSelector activeEngine={activeEngine} onEngineChange={setActiveEngine} />
         <p className="text-center text-xs text-gray-500 mt-2 font-mono">
@@ -138,7 +133,7 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Hero */}
+      {/* ========== HERO ========== */}
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold tracking-tight">
           <span className="cyber-glow-text">{activeEngine === 'datahack' ? 'Real-Time Arbitrage Engine' : 'SEO Engine Ultra'}</span>
@@ -150,7 +145,7 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Search */}
+      {/* ========== SEARCH FORM ========== */}
       <div className="max-w-3xl mx-auto cyber-card rounded-2xl p-6 border border-[#2dd4bf]/10">
         <form onSubmit={handleSearch} className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -237,7 +232,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Report Area */}
+      {/* ========== REPORT AREA ========== */}
       {activeEngine === 'datahack' && report && <PremiumReport data={report} />}
       {activeEngine === 'seo' && seoReport && <SEOReport data={seoReport} />}
 

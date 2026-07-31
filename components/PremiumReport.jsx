@@ -31,7 +31,10 @@ import {
   Activity,
   Crown,
   Globe,
-  Layers
+  Layers,
+  Gauge,
+  Award,
+  AlertCircle
 } from 'lucide-react';
 import {
   BarChart as RechartsBar,
@@ -64,62 +67,66 @@ const getSymbol = (currency) => {
 };
 
 // ============================================================
-// PROGRESS RING
+// PROGRESS RING (Premium)
 // ============================================================
-const ProgressRing = ({ score, label, color, size = 80 }) => {
+const ProgressRing = ({ score, label, color, size = 100 }) => {
   const safeScore = Math.min(100, Math.max(0, score || 0));
-  const radius = (size - 6) / 2;
+  const radius = (size - 8) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (safeScore / 100) * circumference;
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="6" fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="8" fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="8" fill="none" strokeDasharray="4 4" />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke={color}
-          strokeWidth="6"
+          strokeWidth="8"
           fill="none"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 1.5, ease: 'easeOut' }}
-          style={{ filter: `drop-shadow(0 0 12px ${color}40)` }}
+          style={{ filter: `drop-shadow(0 0 20px ${color}40)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold" style={{ color }}>{safeScore}%</span>
-        <span className="text-[8px] text-gray-500 uppercase tracking-widest">{label}</span>
+        <span className="text-2xl font-bold" style={{ color }}>{safeScore}%</span>
+        <span className="text-[9px] text-gray-500 uppercase tracking-widest">{label}</span>
       </div>
     </div>
   );
 };
 
 // ============================================================
-// METRIC CARD
+// PREMIUM METRIC CARD
 // ============================================================
-const MetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon }) => {
+const PremiumMetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon, description }) => {
   const safeValue = Math.min(max, Math.max(0, value || 0));
   const percentage = Math.min(100, (safeValue / max) * 100);
 
   return (
     <motion.div
-      whileHover={{ y: -3, scale: 1.02 }}
-      className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg hover:shadow-[#2dd4bf]/15 transition-all"
+      whileHover={{ y: -4, scale: 1.02 }}
+      className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-5 rounded-xl border border-[#2dd4bf]/10 shadow-lg hover:shadow-[#2dd4bf]/20 transition-all"
     >
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{label}</p>
-        {Icon && <Icon size={14} className="text-[#2dd4bf]/60" />}
+        <div>
+          <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{label}</p>
+          <div className="flex items-end gap-2 mt-1">
+            <span className="text-2xl font-bold" style={{ color }}>{safeValue}</span>
+            <span className="text-sm text-gray-600 font-mono">/{max}</span>
+          </div>
+          {description && <p className="text-[9px] text-gray-500 mt-0.5">{description}</p>}
+        </div>
+        {Icon && <Icon size={22} className={`text-[${color}]/60`} />}
       </div>
-      <div className="flex items-end gap-2 mt-1">
-        <span className="text-2xl font-bold" style={{ color }}>{safeValue}</span>
-        <span className="text-sm text-gray-600 font-mono">/{max}</span>
-      </div>
-      <div className="w-full h-1.5 bg-[#1E293B] rounded-full mt-2 overflow-hidden">
+      <div className="w-full h-2 bg-[#1E293B] rounded-full mt-3 overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{ backgroundColor: color }}
@@ -188,18 +195,14 @@ export default function PremiumReport({ data }) {
       ];
       navigator.clipboard.writeText([headers.join(','), row.join(',')].join('\n'));
       toast.success('CSV copied!');
-    } catch (e) {
-      toast.error('Failed to copy CSV');
-    }
+    } catch (e) { toast.error('Failed to copy CSV'); }
   };
 
   const copyJSON = () => {
     try {
       navigator.clipboard.writeText(JSON.stringify(data, null, 2));
       toast.success('JSON copied!');
-    } catch (e) {
-      toast.error('Failed to copy JSON');
-    }
+    } catch (e) { toast.error('Failed to copy JSON'); }
   };
 
   const copyMarkdown = () => {
@@ -243,17 +246,12 @@ export default function PremiumReport({ data }) {
 `;
       navigator.clipboard.writeText(md);
       toast.success('Markdown copied!');
-    } catch (e) {
-      toast.error('Failed to copy Markdown');
-    }
+    } catch (e) { toast.error('Failed to copy Markdown'); }
   };
 
   const downloadPDF = async () => {
     const element = reportRef.current;
-    if (!element) {
-      toast.error('Report not ready!');
-      return;
-    }
+    if (!element) { toast.error('Report not ready!'); return; }
     toast.loading('Generating PDF...', { id: 'pdf' });
     try {
       const canvas = await html2canvas(element, {
@@ -296,16 +294,23 @@ export default function PremiumReport({ data }) {
       transition={{ duration: 0.5 }}
       className="max-w-7xl mx-auto mt-10 p-4 bg-[#080B12] rounded-3xl overflow-hidden"
     >
+      {/* Background Glows */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#2dd4bf]/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#a78bfa]/5 rounded-full blur-3xl pointer-events-none" />
+
       <div className="relative z-10 space-y-6">
-        {/* HEADER */}
+        {/* ========== HEADER ========== */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#2dd4bf]/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2dd4bf] to-[#a78bfa] flex items-center justify-center shadow-lg shadow-[#2dd4bf]/20">
-              <Crown size={16} className="text-black" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2dd4bf] to-[#a78bfa] flex items-center justify-center shadow-lg shadow-[#2dd4bf]/20">
+              <Crown size={18} className="text-black" />
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">{data.productName || 'Product'}</h2>
-            <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-2.5 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1">
+            <h2 className="text-2xl font-bold text-white tracking-tight">{data.productName || 'Product'}</h2>
+            <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-3 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" /> Live
+            </span>
+            <span className="text-[10px] font-mono bg-[#a78bfa]/10 text-[#a78bfa] px-3 py-1 rounded-full border border-[#a78bfa]/20">
+              Pro
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -324,17 +329,17 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* ACTION SCORE */}
+        {/* ========== ACTION SCORE ========== */}
         <div className="cyber-card rounded-2xl p-6 border-l-4 flex flex-wrap items-center justify-between gap-6" style={{ borderLeftColor: actionColor }}>
           <div className="flex items-center gap-8">
-            <ProgressRing score={actionScore} label="SCORE" color={actionColor} />
+            <ProgressRing score={actionScore} label="ACTION" color={actionColor} />
             <div>
               <p className="text-[10px] text-gray-400 font-mono tracking-widest">ACTION SCORE</p>
               <p className="text-2xl font-bold" style={{ color: actionColor }}>{actionLabel}</p>
               <p className="text-sm text-gray-300 max-w-lg">{data.executiveSummary || 'Analysis complete.'}</p>
             </div>
           </div>
-          <div className="flex items-center gap-8 text-sm">
+          <div className="flex items-center gap-6">
             <div className="text-center">
               <p className="text-[9px] text-gray-500 font-mono uppercase">Est. Sales</p>
               <p className="text-xl font-bold text-[#2dd4bf]">{data.estimatedMonthlySales || 'N/A'}+</p>
@@ -354,7 +359,7 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* COMPETITOR INTEL + PRICE SPREAD */}
+        {/* ========== COMPETITOR INTEL + PRICE SPREAD ========== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="cyber-card rounded-2xl p-6">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
@@ -364,7 +369,7 @@ export default function PremiumReport({ data }) {
               <div>
                 <p className="text-[10px] text-gray-500 font-mono">Product</p>
                 <p className="text-lg font-bold text-white truncate">{data.productName || 'N/A'}</p>
-                <p className="text-3xl font-bold text-[#2dd4bf] mt-1">{symbol}{formatPrice(calc.recommendedPrice)}</p>
+                <p className="text-4xl font-bold text-[#2dd4bf] mt-1">{symbol}{formatPrice(calc.recommendedPrice)}</p>
                 <p className="text-[10px] text-gray-400 font-mono mt-0.5">{comp.dominantBrands?.join(' • ') || 'Top Brands'}</p>
               </div>
               <div className="grid grid-cols-2 gap-4 bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
@@ -415,7 +420,6 @@ export default function PremiumReport({ data }) {
               <span>Max: {symbol}{formatPrice(calc.maxPrice)}</span>
             </div>
 
-            {/* Sentiment */}
             <div className="mt-4">
               <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><MessageCircle size={12} /> Sentiment</p>
               <div className="flex h-2.5 rounded-full overflow-hidden mt-1">
@@ -439,17 +443,17 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* METRICS + PROFIT/ROI */}
+        {/* ========== METRICS + PROFIT/ROI ========== */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="cyber-card rounded-2xl p-6 md:col-span-2">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
               <Zap size={14} /> V5.0 ADV DATA
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <MetricCard label="Market Heat" value={marketHeat} color="#2dd4bf" icon={Activity} />
-              <MetricCard label="Ad Strength" value={adStrength} color="#a78bfa" icon={Target} />
-              <MetricCard label="Profit Margin" value={profitMargin} color="#34d399" icon={DollarSign} />
-              <MetricCard label="Urgency" value={urgency} color="#f59e0b" icon={Clock} />
+              <PremiumMetricCard label="Market Heat" value={marketHeat} color="#2dd4bf" icon={Activity} description="Demand vs Supply" />
+              <PremiumMetricCard label="Ad Strength" value={adStrength} color="#a78bfa" icon={Target} description="Competitor Ads" />
+              <PremiumMetricCard label="Profit Margin" value={profitMargin} color="#34d399" icon={DollarSign} description="Potential Profit" />
+              <PremiumMetricCard label="Urgency" value={urgency} color="#f59e0b" icon={Clock} description="Seasonality" />
             </div>
           </div>
 
@@ -474,7 +478,7 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* MINING STRATEGY */}
+        {/* ========== MINING STRATEGY ========== */}
         <div className="cyber-card rounded-2xl p-6">
           <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
             <Layers size={14} /> MINING STRATEGY
@@ -524,7 +528,7 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* ========== FOOTER ========== */}
         <div className="flex items-center justify-between text-[9px] text-gray-600 font-mono border-t border-[#2dd4bf]/10 pt-4">
           <span>PROFITFORGE Pro v6.0</span>
           <span>Real · Live Data · Powered by SerpAPI + Groq</span>

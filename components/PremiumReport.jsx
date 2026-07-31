@@ -42,7 +42,8 @@ import {
   Heart,
   ThumbsUp,
   ThumbsDown,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 import {
   BarChart as RechartsBar,
@@ -75,6 +76,28 @@ const getSymbol = (currency) => {
     PKR: 'Rs.'
   };
   return map[currency] || '$';
+};
+
+// ============================================================
+// DETECT REPORT TYPE
+// ============================================================
+const detectReportType = (data) => {
+  // If data has seoData or seoScore, it's an SEO report
+  if (data.seoData || data.seoScore || data.keywordStrategy) {
+    return 'seo';
+  }
+  // If data has calculatedMetrics and analysisResult, it's Product Research
+  if (data.calculatedMetrics || data.analysisResult || data.priceIntelligence) {
+    return 'product';
+  }
+  // Check for actionScore and competitors (common in both)
+  if (data.actionScore && (data.competitionAnalysis || data.marketGap)) {
+    // SEO reports usually have keywordStrategy, Product reports have priceIntelligence
+    if (data.keywordStrategy) return 'seo';
+    if (data.priceIntelligence) return 'product';
+  }
+  // Default to product
+  return 'product';
 };
 
 // ============================================================
@@ -203,18 +226,28 @@ export default function PremiumReport({ data }) {
   if (!data) return null;
 
   // ============================================================
-  // DATA EXTRACTION (ONLY FROM REAL DATA — NO FALLBACKS)
+  // DETECT REPORT TYPE
+  // ============================================================
+  const reportType = detectReportType(data);
+  const isSEO = reportType === 'seo';
+  const isProduct = reportType === 'product';
+
+  // ============================================================
+  // EXTRACT DATA (Product Research)
   // ============================================================
   const calc = data.calculatedMetrics || {};
   const adv = data.advancedInsights || {};
   const comp = data.competitionAnalysis || {};
   const playbook = data.customerPlaybook || {};
   const sentiment = data.sentimentAnalysis || {};
+  const keywordStrategy = data.keywordStrategy || {};
 
   const currency = calc.currency || 'USD';
   const symbol = getSymbol(currency);
   const productName = data.productName || 'Product';
   const market = data.market || 'PK';
+
+  // Core metrics
   const actionScore = data.actionScore || 60;
   const actionLabel = data.actionLabel || 'Test Waters';
   const actionColor = actionScore >= 70 ? '#34d399' : actionScore >= 50 ? '#f59e0b' : '#ef4444';
@@ -229,20 +262,15 @@ export default function PremiumReport({ data }) {
   const competitorCount = calc.filteredCompetitorCount || 0;
   const rawCompetitorCount = calc.rawCompetitorCount || 0;
 
-  // Brands from real data
+  // Brands
   const topBrands = comp.dominantBrands?.slice(0, 5) || [];
-  const competitorList = comp.dominantBrands?.slice(0, 10) || [];
-
-  // Chart Data from real prices
-  const chartData = comp.dominantBrands?.slice(0, 6).map((brand, i) => ({
-    name: brand.length > 12 ? brand.slice(0, 10) + '..' : brand,
-    price: Math.round((avgPrice || 50) * (0.75 + i * 0.08))
-  })) || [{ name: 'Avg Price', price: avgPrice || 50 }];
 
   // Pain points
   const painPoints = sentiment.topPainPoints || [];
 
-  // Recommendations from real data
+  // ============================================================
+  // GENERATE RECOMMENDATIONS (Data-driven)
+  // ============================================================
   const getRecommendations = () => {
     const recs = [];
     if (actionScore < 70) recs.push('Increase marketing efforts to boost brand visibility');
@@ -252,17 +280,251 @@ export default function PremiumReport({ data }) {
     if (recs.length === 0) recs.push('Maintain current strategy and monitor competitor activity');
     return recs.slice(0, 4);
   };
+  const recommendations = getRecommendations();
 
   // ============================================================
   // EXPORT FUNCTIONS
   // ============================================================
-  const copyCSV = () => { /* ... same as before ... */ };
-  const copyJSON = () => { /* ... same as before ... */ };
-  const copyMarkdown = () => { /* ... generate markdown with real data ... */ };
-  const downloadPDF = async () => { /* ... same as before ... */ };
+  const copyCSV = () => {
+    try {
+      const headers = ['Product', 'Market', 'Score', 'Price', 'Profit', 'ROI', 'Competitors', 'Verdict'];
+      const row = [
+        productName,
+        market,
+        actionScore,
+        `${symbol}${formatPrice(recommendedPrice)}`,
+        `${symbol}${formatPrice(profit)}`,
+        `${roi}%`,
+        `${competitorCount} (${rawCompetitorCount} total)`,
+        data.executiveSummary?.slice(0, 40) || 'N/A'
+      ];
+      navigator.clipboard.writeText([headers.join(','), row.join(',')].join('\n'));
+      toast.success('CSV copied!');
+    } catch (e) { toast.error('Failed to copy CSV'); }
+  };
+
+  const copyJSON = () => {
+    try {
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      toast.success('JSON copied!');
+    } catch (e) { toast.error('Failed to copy JSON'); }
+  };
+
+  const copyMarkdown = () => {
+    try {
+      let md = '';
+      if (isSEO) {
+        md = `
+# 📊 PREMIUM SEO REPORT FOR ${productName.toUpperCase()} IN ${market}
+
+**SEO Score:** ${actionScore}%
+**Timeline:** 60-90 Days
+**Action Score:** ${actionScore}% — ${actionLabel}
+
+## 1. REAL KEYWORD DATA
+${keywordStrategy.primaryKeywords?.map(k => `- ${k}`).join('\n') || 'N/A'}
+
+## 2. TOP 5 COMPETITORS
+${comp.dominantBrands?.map(b => `- ${b}`).join('\n') || 'N/A'}
+
+## 3. FINAL VERDICT
+${data.executiveSummary || 'N/A'}
+`;
+      } else {
+        md = `
+# 📦 PREMIUM PRODUCT RESEARCH REPORT FOR ${productName.toUpperCase()} IN ${market}
+
+**Action Score:** ${actionScore}% — ${actionLabel}
+**Market Heat:** ${Math.min(10, Math.round((actionScore / 100) * 10))}/10
+**Risk Level:** ${data.riskMeter || 'Medium'}
+
+## 1. MARKET INTEL + PRICING
+- **Recommended Price:** ${symbol}${formatPrice(recommendedPrice)}
+- **Average Price:** ${symbol}${formatPrice(avgPrice)}
+- **Price Range:** ${symbol}${formatPrice(minPrice)} - ${symbol}${formatPrice(maxPrice)}
+- **Total Competitors:** ${competitorCount}
+- **Top 5 Brands:** ${topBrands.join(' • ') || 'N/A'}
+- **Market Gap:** ${data.marketGap?.description || 'N/A'}
+
+## 2. PROFIT CALCULATOR
+Cost ${symbol}${formatPrice(Math.round(avgPrice * 0.4))} + Ads ${symbol}${formatPrice(Math.round(avgPrice * 0.15))} + Fees ${symbol}${formatPrice(Math.round(avgPrice * 0.05))} = Total ${symbol}${formatPrice(Math.round(avgPrice * 0.6))}
+Sell ${symbol}${formatPrice(recommendedPrice)} - Total = Profit ${symbol}${formatPrice(profit)} (ROI: ${roi}%)
+
+## 3. CUSTOMER PLAYBOOK
+- **Demographic:** ${playbook.targetDemographic || 'N/A'}
+- **Pain Points:** ${painPoints.join(' • ') || 'N/A'}
+
+## FINAL VERDICT
+${data.executiveSummary || 'N/A'}
+`;
+      }
+      navigator.clipboard.writeText(md);
+      toast.success('Markdown copied!');
+    } catch (e) { toast.error('Failed to copy Markdown'); }
+  };
+
+  const downloadPDF = async () => {
+    const element = reportRef.current;
+    if (!element) { toast.error('Report not ready!'); return; }
+    toast.loading('Generating PDF...', { id: 'pdf' });
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2.5,
+        backgroundColor: '#080B12',
+        allowTaint: true,
+        useCORS: true,
+        logging: false
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      let heightLeft = pdfHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pdf.internal.pageSize.getHeight();
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pdf.internal.pageSize.getHeight();
+      }
+      pdf.save(`${isSEO ? 'SEO' : 'Product'}_Report_${productName.replace(/ /g, '_')}.pdf`);
+      toast.success('PDF Downloaded!', { id: 'pdf' });
+    } catch (error) {
+      console.error('PDF Error:', error);
+      toast.error('Failed to generate PDF.', { id: 'pdf' });
+    }
+  };
 
   // ============================================================
-  // RENDER
+  // RENDER — SEO REPORT
+  // ============================================================
+  if (isSEO) {
+    return (
+      <motion.div
+        ref={reportRef}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-7xl mx-auto mt-10 p-4 bg-[#080B12] rounded-3xl overflow-hidden"
+      >
+        <div className="relative z-10 space-y-8">
+          {/* HEADER */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#2dd4bf]/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a78bfa] to-[#2dd4bf] flex items-center justify-center shadow-lg shadow-[#a78bfa]/20">
+                <BookOpen size={18} className="text-black" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2>
+                <span className="text-[10px] text-gray-500 font-mono">{market} · {currency} · SEO Report</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-3 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" /> Live
+              </span>
+              <span className="text-[10px] font-mono bg-[#a78bfa]/10 text-[#a78bfa] px-3 py-1 rounded-full border border-[#a78bfa]/20">Premium SEO</span>
+              <button onClick={copyCSV} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+                <FileSpreadsheet size={11} /> CSV
+              </button>
+              <button onClick={copyJSON} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+                <FileJson size={11} /> JSON
+              </button>
+              <button onClick={copyMarkdown} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+                <FileCode size={11} /> MD
+              </button>
+              <button onClick={downloadPDF} className="text-[10px] bg-gradient-to-r from-[#a78bfa] to-[#2dd4bf] hover:opacity-90 px-4 py-1.5 rounded-lg flex items-center gap-1.5 text-black font-bold shadow-lg shadow-[#a78bfa]/20 transition-all">
+                <Download size={11} /> PDF
+              </button>
+            </div>
+          </div>
+
+          {/* SEO SCORE */}
+          <div className="cyber-card rounded-2xl p-6 border-l-4 flex flex-wrap items-center justify-between gap-6" style={{ borderLeftColor: actionColor }}>
+            <div className="flex items-center gap-8">
+              <ProgressRing score={actionScore} label="SEO" color={actionColor} />
+              <div>
+                <p className="text-[10px] text-gray-400 font-mono tracking-widest">SEO SCORE</p>
+                <p className="text-2xl font-bold" style={{ color: actionColor }}>
+                  {actionScore >= 70 ? 'Good' : actionScore >= 50 ? 'Needs Work' : 'Needs Help'}
+                </p>
+                <p className="text-sm text-gray-300 max-w-lg">{data.executiveSummary || 'Analysis complete.'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <p className="text-[9px] text-gray-500 font-mono uppercase">Timeline</p>
+                <p className="text-xl font-bold text-[#2dd4bf]">60-90 Days</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-gray-500 font-mono uppercase">Action</p>
+                <p className="text-xl font-bold text-yellow-400">{actionLabel}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* KEYWORD STRATEGY */}
+          <div className="cyber-card rounded-2xl p-6">
+            <SectionDivider title="REAL KEYWORD DATA + SEARCH TREND" icon={Hash} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+                <p className="text-[10px] text-gray-400 font-mono">Primary Keywords</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {keywordStrategy.primaryKeywords?.map((kw, i) => (
+                    <span key={i} className="text-[9px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20">{kw}</span>
+                  )) || <span className="text-sm text-gray-500">N/A</span>}
+                </div>
+              </div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+                <p className="text-[10px] text-gray-400 font-mono">Secondary Keywords</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {keywordStrategy.secondaryKeywords?.map((kw, i) => (
+                    <span key={i} className="text-[9px] bg-[#a78bfa]/10 text-[#a78bfa] px-2 py-0.5 rounded-full border border-[#a78bfa]/20">{kw}</span>
+                  )) || <span className="text-sm text-gray-500">N/A</span>}
+                </div>
+              </div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+                <p className="text-[10px] text-gray-400 font-mono">Long-tail Keywords</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {keywordStrategy.longTailKeywords?.map((kw, i) => (
+                    <span key={i} className="text-[9px] bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/20">{kw}</span>
+                  )) || <span className="text-sm text-gray-500">N/A</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TOP COMPETITORS */}
+          <div className="cyber-card rounded-2xl p-6">
+            <SectionDivider title="TOP 5 COMPETITORS" icon={Users} />
+            <div className="flex flex-wrap gap-2">
+              {comp.dominantBrands?.map((brand, idx) => (
+                <span key={idx} className="text-xs bg-[#0F172A] text-white px-3 py-1.5 rounded-full border border-white/5">{brand}</span>
+              )) || <span className="text-sm text-gray-500">N/A</span>}
+            </div>
+          </div>
+
+          {/* FINAL VERDICT */}
+          <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
+            <SectionDivider title="FINAL VERDICT" icon={Award} />
+            <p className="text-sm text-gray-300">{data.executiveSummary || 'Analysis complete.'}</p>
+          </div>
+
+          {/* FOOTER */}
+          <div className="flex items-center justify-between text-[9px] text-gray-600 font-mono border-t border-[#2dd4bf]/10 pt-4">
+            <span>PROFITFORGE Pro v6.0 · Premium SEO Report</span>
+            <span>Real Data · Actionable · Ready to Execute</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse" /> Live</span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ============================================================
+  // RENDER — PRODUCT RESEARCH REPORT
   // ============================================================
   return (
     <motion.div
@@ -281,7 +543,7 @@ export default function PremiumReport({ data }) {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2>
-              <span className="text-[10px] text-gray-500 font-mono">{market.toUpperCase()} · {currency}</span>
+              <span className="text-[10px] text-gray-500 font-mono">{market} · {currency} · Product Research</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -334,9 +596,7 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* ============================================================
-        SECTION 1: MARKET INTEL + PRICING (REAL DATA)
-        ============================================================ */}
+        {/* MARKET INTEL + PRICING */}
         <div className="cyber-card rounded-2xl p-6">
           <SectionDivider title="MARKET INTEL + PRICING" icon={DollarSign} />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -371,82 +631,7 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* ============================================================
-        SECTION 2: TOP 5 SELLING PRODUCTS (REAL FROM COMPETITORS)
-        ============================================================ */}
-        <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="TOP 5 SELLING PRODUCTS ANALYSIS" icon={ShoppingBag} />
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <thead>
-                <tr className="border-b border-[#2dd4bf]/20">
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Product Name</th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Brand</th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Price ({currency})</th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Est. Monthly Sales</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topBrands.slice(0, 5).map((brand, idx) => (
-                  <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition">
-                    <td className="py-2 px-2 text-white font-medium">{brand} {productName}</td>
-                    <td className="py-2 px-2 text-gray-300">{brand}</td>
-                    <td className="py-2 px-2 text-[#2dd4bf]">{symbol}{formatPrice(Math.round(avgPrice * (0.85 + idx * 0.05)))}</td>
-                    <td className="py-2 px-2 text-yellow-400">{Math.round(300 + Math.random() * 1200)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-500 font-mono">📊 Insight 1</p>
-              <p className="text-sm text-gray-300">Top brands in this niche are {topBrands.join(', ') || 'emerging'} with strong market presence.</p>
-            </div>
-            <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-500 font-mono">📊 Insight 2</p>
-              <p className="text-sm text-gray-300">The average price of {symbol}{formatPrice(avgPrice)} indicates a {avgPrice > 5000 ? 'premium' : 'budget'} market segment.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ============================================================
-        SECTION 3: SUPPLIER + COST BREAKDOWN (REAL MATH)
-        ============================================================ */}
-        <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="SUPPLIER + COST BREAKDOWN" icon={Package} />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-[#2dd4bf] font-mono">Option 1 - Local</p>
-              <p className="text-sm text-white mt-1">Local Market - Cost per unit {symbol}{formatPrice(Math.round(avgPrice * 0.3))}</p>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-[#2dd4bf] font-mono">Option 2 - Alibaba/1688</p>
-              <p className="text-sm text-white mt-1">${Math.round(avgPrice * 0.15)} + Shipping + Import Tax = Landed {symbol}{formatPrice(Math.round(avgPrice * 0.25))}</p>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-[#2dd4bf] font-mono">Option 3 - Local Manufacturer</p>
-              <p className="text-sm text-white mt-1">MOQ 500 units, Contact via Daraz/TradeKey</p>
-            </div>
-          </div>
-          <div className="p-4 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
-            <p className="text-[10px] text-gray-500 font-mono">📊 Profit Calculator</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-              <div><span className="text-[10px] text-gray-400">Cost</span> <span className="text-sm text-white font-bold">{symbol}{formatPrice(Math.round(avgPrice * 0.4))}</span></div>
-              <div><span className="text-[10px] text-gray-400">+ Ads</span> <span className="text-sm text-white font-bold">{symbol}{formatPrice(Math.round(avgPrice * 0.15))}</span></div>
-              <div><span className="text-[10px] text-gray-400">+ Fees</span> <span className="text-sm text-white font-bold">{symbol}{formatPrice(Math.round(avgPrice * 0.05))}</span></div>
-              <div><span className="text-[10px] text-gray-400">= Total Cost</span> <span className="text-sm text-white font-bold">{symbol}{formatPrice(Math.round(avgPrice * 0.6))}</span></div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div><span className="text-[10px] text-gray-400">Sell Price</span> <span className="text-sm text-[#2dd4bf] font-bold">{symbol}{formatPrice(recommendedPrice)}</span></div>
-              <div><span className="text-[10px] text-gray-400">- Total Cost</span> <span className="text-sm text-[#34d399] font-bold">{symbol}{formatPrice(profit)} (ROI: {roi}%)</span></div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============================================================
-        SECTION 4: CUSTOMER PLAYBOOK (REAL FROM AI)
-        ============================================================ */}
+        {/* CUSTOMER PLAYBOOK */}
         <div className="cyber-card rounded-2xl p-6">
           <SectionDivider title="CUSTOMER PLAYBOOK" icon={Users} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -481,9 +666,42 @@ export default function PremiumReport({ data }) {
           </div>
         </div>
 
-        {/* ============================================================
-        SECTION 5: SENTIMENT + REVIEWS (REAL)
-        ============================================================ */}
+        {/* PROFIT CALCULATOR */}
+        <div className="cyber-card rounded-2xl p-6">
+          <SectionDivider title="PROFIT CALCULATOR" icon={DollarSign} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">Cost</p>
+              <p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.4))}</p>
+            </div>
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">+ Ads</p>
+              <p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.15))}</p>
+            </div>
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">+ Fees</p>
+              <p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.05))}</p>
+            </div>
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">= Total Cost</p>
+              <p className="text-xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(Math.round(avgPrice * 0.6))}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">Sell Price</p>
+              <p className="text-2xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(recommendedPrice)}</p>
+            </div>
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">- Total Cost</p>
+              <p className={`text-2xl font-bold ${profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
+                {symbol}{formatPrice(profit)} (ROI: {roi}%)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* SENTIMENT + REVIEWS */}
         <div className="cyber-card rounded-2xl p-6">
           <SectionDivider title="SENTIMENT + REVIEWS ANALYSIS" icon={MessageCircle} />
           <div className="flex flex-wrap items-center gap-6">
@@ -506,7 +724,7 @@ export default function PremiumReport({ data }) {
           </div>
           {painPoints.length > 0 && (
             <div className="mt-4 p-4 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-500 font-mono">📝 Pain Points</p>
+              <p className="text-[10px] text-gray-500 font-mono">📝 Complaints from {market}</p>
               <ul className="list-disc list-inside text-sm text-gray-300 mt-1">
                 {painPoints.map((p, i) => <li key={i}>{p}</li>)}
               </ul>
@@ -514,105 +732,20 @@ export default function PremiumReport({ data }) {
           )}
         </div>
 
-        {/* ============================================================
-        SECTION 6: 90 DAY LAUNCH CALENDAR (GENERIC BUT REALISTIC)
-        ============================================================ */}
+        {/* FINAL RECOMMENDATIONS */}
         <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="90 DAY LAUNCH CALENDAR" icon={Calendar} />
-          <p className="text-xs text-gray-400 mb-4 font-mono">🎯 Goal: First 100 Sales in 90 Days</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <h4 className="text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-2">Month 1 - Validation</h4>
-              <ul className="list-disc list-inside text-xs text-gray-300 space-y-0.5">
-                <li>Source product, 10 test orders</li>
-                <li>Setup store (Shopify/Daraz)</li>
-                <li>5 UGC videos</li>
-                <li>Build landing page</li>
-              </ul>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <h4 className="text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-2">Month 2 - Scale</h4>
-              <ul className="list-disc list-inside text-xs text-gray-300 space-y-0.5">
-                <li>Run ads {symbol}{formatPrice(Math.round(avgPrice * 0.5))}/day</li>
-                <li>5 Micro-influencers</li>
-                <li>Collect 20 reviews</li>
-                <li>Optimize listing</li>
-              </ul>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <h4 className="text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-2">Month 3 - Profit</h4>
-              <ul className="list-disc list-inside text-xs text-gray-300 space-y-0.5">
-                <li>Scale winning ads</li>
-                <li>Add bundles/upsells</li>
-                <li>Email marketing</li>
-                <li>Profit analysis</li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-4 p-3 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
-            <p className="text-[10px] text-gray-500 font-mono">🎯 Target Revenue by Day 90</p>
-            <p className="text-2xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(Math.round(avgPrice * 100))}</p>
-          </div>
+          <SectionDivider title="FINAL RECOMMENDATIONS" icon={Award} />
+          <ul className="space-y-2">
+            {recommendations.map((rec, idx) => (
+              <li key={idx} className="flex items-start gap-2 bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
+                <span className="text-[#2dd4bf] font-bold text-sm">{idx+1}.</span>
+                <span className="text-sm text-gray-200">{rec}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* ============================================================
-        SECTION 7: RISK + AD CREATIVE
-        ============================================================ */}
-        <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="RISK + AD CREATIVE" icon={AlertTriangle} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] text-gray-500 font-mono">⚠️ Top 3 Risks & Mitigation</p>
-              <ul className="space-y-2 mt-2">
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-xs text-yellow-400">Risk:</span> <span className="text-xs text-gray-300">High competition from established brands</span>
-                  <br />
-                  <span className="text-xs text-[#2dd4bf]">Mitigate:</span> <span className="text-xs text-gray-300">Differentiate with unique packaging and branding</span>
-                </li>
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-xs text-yellow-400">Risk:</span> <span className="text-xs text-gray-300">Supply chain delays</span>
-                  <br />
-                  <span className="text-xs text-[#2dd4bf]">Mitigate:</span> <span className="text-xs text-gray-300">Keep 2-3 weeks of safety stock</span>
-                </li>
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-xs text-yellow-400">Risk:</span> <span className="text-xs text-gray-300">Ad costs may exceed forecast</span>
-                  <br />
-                  <span className="text-xs text-[#2dd4bf]">Mitigate:</span> <span className="text-xs text-gray-300">Start small, test before scaling</span>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 font-mono">🎬 Ad Creative Ideas</p>
-              <ul className="list-disc list-inside text-xs text-gray-300 space-y-1 mt-2">
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-[#2dd4bf]">Hook:</span> Tired of poor quality? Try ours!<br />
-                  <span className="text-gray-400">Thumbnail:</span> Product in use
-                </li>
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-[#2dd4bf]">Hook:</span> See why everyone loves this!<br />
-                  <span className="text-gray-400">Thumbnail:</span> Happy customer
-                </li>
-                <li className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
-                  <span className="text-[#2dd4bf]">Hook:</span> Limited stock - grab yours now!<br />
-                  <span className="text-gray-400">Thumbnail:</span> Urgent price tag
-                </li>
-              </ul>
-              <div className="mt-4">
-                <p className="text-[10px] text-gray-500 font-mono">📊 Metrics to Track</p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <span className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">CAC</span>
-                  <span className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">ROAS</span>
-                  <span className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">Return Rate</span>
-                  <span className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">Profit Margin</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============================================================
-        FINAL VERDICT
-        ============================================================ */}
+        {/* FINAL VERDICT */}
         <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
           <SectionDivider title="FINAL VERDICT" icon={Award} />
           <div className="space-y-3">

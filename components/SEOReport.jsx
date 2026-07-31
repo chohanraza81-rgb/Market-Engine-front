@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Download, Copy, FileJson, FileMarkdown, FileText, 
+  Download, Copy, FileJson, FileText, // ✅ Fixed: FileMarkdown removed
   ChevronDown, ChevronRight, CheckCircle, XCircle, 
   AlertCircle, TrendingUp, Users, Search, 
   Calendar, Link, Award, BarChart3, Zap,
@@ -26,7 +26,6 @@ const SEOReport = ({ data, onExport }) => {
   
   const [isExporting, setIsExporting] = useState(false);
 
-  // Toggle section expansion
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -34,28 +33,24 @@ const SEOReport = ({ data, onExport }) => {
     }));
   };
 
-  // Calculate SEO score color
   const getScoreColor = (score) => {
     if (score >= 70) return '#34d399';
     if (score >= 50) return '#f59e0b';
     return '#ef4444';
   };
 
-  // Get score label
   const getScoreLabel = (score) => {
     if (score >= 70) return 'Strong';
     if (score >= 50) return 'Medium';
     return 'Needs Improvement';
   };
 
-  // Format currency
   const formatVolume = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
   };
 
-  // Copy to clipboard
   const copyToClipboard = async (content) => {
     try {
       await navigator.clipboard.writeText(content);
@@ -65,13 +60,11 @@ const SEOReport = ({ data, onExport }) => {
     }
   };
 
-  // Export as Markdown
   const exportMarkdown = () => {
     let markdown = `# PROFITFORGE Pro - SEO Report\n\n`;
     markdown += `## Product: ${data.keywordStrategy?.primary?.[0]?.keyword || 'N/A'}\n\n`;
     markdown += `## SEO Score: ${data.seoScore}%\n\n`;
     
-    // Add sections
     if (data.keywordStrategy) {
       markdown += `## Keyword Strategy\n\n`;
       markdown += `### Primary Keywords\n`;
@@ -80,7 +73,6 @@ const SEOReport = ({ data, onExport }) => {
       });
     }
     
-    // Executive Summary
     if (data.executiveSummary) {
       markdown += `\n## Executive Summary\n\n`;
       markdown += `${data.executiveSummary.verdict}\n\n`;
@@ -93,7 +85,6 @@ const SEOReport = ({ data, onExport }) => {
     copyToClipboard(markdown);
   };
 
-  // Export as PDF (using html2canvas and jsPDF)
   const exportPDF = async () => {
     setIsExporting(true);
     try {
@@ -183,7 +174,7 @@ const SEOReport = ({ data, onExport }) => {
             onClick={exportMarkdown}
             className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-gray-300 transition-all"
           >
-            <FileMarkdown className="w-4 h-4" />
+            <FileText className="w-4 h-4" />  {/* ✅ Fixed */}
             Copy Markdown
           </button>
           <button
@@ -197,7 +188,7 @@ const SEOReport = ({ data, onExport }) => {
         </div>
       </div>
 
-      {/* Executive Summary - Always Visible */}
+      {/* Executive Summary */}
       {data.executiveSummary && (
         <motion.div
           initial={{ opacity: 0, x: -20 }}

@@ -113,7 +113,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      {/* ========== HEADER (No duplicate selector here) ========== */}
+      {/* ========== HEADER ========== */}
       <div className="flex justify-between items-center mb-6 border-b border-[#2dd4bf]/10 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#2dd4bf]/10 flex items-center justify-center border border-[#2dd4bf]/30">
@@ -125,18 +125,17 @@ export default function Home() {
         <LiveStatus />
       </div>
 
-      {/* ========== ENGINE SELECTOR (Only once) ========== */}
-      <div className="mb-8">
+      {/* ========== ENGINE SELECTOR (ONLY ONCE) ========== */}
+      <div className="mb-6">
         <SearchEngineSelector activeEngine={activeEngine} onEngineChange={setActiveEngine} />
-        <p className="text-center text-xs text-gray-500 mt-2 font-mono">
-          {activeEngine === 'datahack' ? 'Real-time market analysis & arbitrage' : '60-90 day actionable SEO strategy'}
-        </p>
       </div>
 
       {/* ========== HERO ========== */}
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold tracking-tight">
-          <span className="cyber-glow-text">{activeEngine === 'datahack' ? 'Real-Time Arbitrage Engine' : 'SEO Engine Ultra'}</span>
+          <span className="cyber-glow-text">
+            {activeEngine === 'datahack' ? 'Real-Time Arbitrage Engine' : 'SEO Engine Ultra'}
+          </span>
         </h2>
         <p className="text-gray-400 mt-1 font-mono text-sm">
           {activeEngine === 'datahack' 

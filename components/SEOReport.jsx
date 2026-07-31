@@ -45,33 +45,30 @@ import toast from 'react-hot-toast';
 // ============================================================
 // HELPERS
 // ============================================================
-const formatCurrency = (num) => {
+const formatPrice = (num) => {
   if (num === undefined || num === null || isNaN(num)) return '0';
   return Number(num).toLocaleString('en-US');
 };
 
-const getSymbol = (currency) => {
+const getCurrencySymbol = (country) => {
   const map = {
-    USD: '$',
-    GBP: '£',
-    AED: 'د.إ',
-    INR: '₹',
-    PKR: 'Rs.'
+    in: '₹',
+    pk: 'Rs.',
+    us: '$',
+    ae: 'د.إ',
+    uk: '£'
   };
-  return map[currency] || '$';
+  return map[country?.toLowerCase()] || '$';
 };
 
-// ============================================================
-// RULE 2: COUNTRY LOCK — Get real websites for each country
-// ============================================================
-const getRealWebsites = (country) => {
+const getLocalWebsites = (country) => {
   const sites = {
-    in: { edu: ['Amazon.in', 'Flipkart', 'Coursera.in', 'Udemy.in', 'TechCrunch India'], general: ['Amazon.in', 'Flipkart', 'Quora India', 'Reddit India'] },
-    pk: { edu: ['Daraz.pk', 'PriceOye.pk', 'TechGlobe.pk', 'ProPakistani.pk', 'PakWheels.com'], general: ['Daraz.pk', 'PriceOye.pk', 'PakWheels.com', 'TechJuice.pk'] },
-    us: { edu: ['Coursera', 'Udemy', 'Amazon.com', 'Walmart', 'Best Buy'], general: ['Amazon.com', 'Walmart', 'Target', 'Best Buy', 'Costco'] },
-    ae: { edu: ['Noon.com', 'Amazon.ae', 'Carrefour UAE', 'Sharaf DG', 'LuLu Hypermarket'], general: ['Noon.com', 'Amazon.ae', 'Carrefour UAE'] }
+    in: ['Amazon.in', 'Flipkart', 'Coursera India', 'Udemy India', 'TechCrunch India', 'Quora India', 'Reddit India'],
+    pk: ['Daraz.pk', 'PriceOye.pk', 'TechGlobe.pk', 'ProPakistani.pk', 'PakWheels.com', 'TechJuice.pk'],
+    us: ['Amazon.com', 'Walmart', 'Target', 'Best Buy', 'Costco', 'Coursera', 'Udemy'],
+    ae: ['Noon.com', 'Amazon.ae', 'Carrefour UAE', 'Sharaf DG', 'LuLu Hypermarket']
   };
-  return sites[country]?.general || sites.us.general;
+  return sites[country?.toLowerCase()] || sites.us;
 };
 
 // ============================================================
@@ -127,8 +124,8 @@ export default function SEOReport({ data }) {
   const seoData = data.seoData || data;
   const productName = seoData.productName || data.productName || 'Product';
   const market = seoData.market || data.market || 'N/A';
-  const currency = seoData.currency || 'PKR';
-  const symbol = getSymbol(currency);
+  const currencySymbol = getCurrencySymbol(market);
+  const localWebsites = getLocalWebsites(market);
 
   const seoScore = seoData.seoScore || 65;
   const actionScore = seoData.actionScore || 70;
@@ -138,35 +135,31 @@ export default function SEOReport({ data }) {
 
   const keywordStrategy = seoData.keywordStrategy || {};
   const contentStrategy = seoData.contentStrategy || {};
-  const technicalSEO = seoData.technicalSEO || {};
   const backlinkStrategy = seoData.backlinkStrategy || {};
   const competitorGap = seoData.competitorGapAnalysis || {};
 
-  // Get real websites for the country
-  const realWebsites = getRealWebsites(market.toLowerCase());
-
   // Keyword data with dynamic currency
   const keywordData = [
-    { keyword: keywordStrategy.primaryKeywords?.[0] || `${productName} guide`, volume: '14,800', difficulty: 72, cpc: `45 ${symbol}`, trend: '📈 +18%' },
-    { keyword: keywordStrategy.primaryKeywords?.[1] || `Best ${productName}`, volume: '9,200', difficulty: 58, cpc: `32 ${symbol}`, trend: '📈 +22%' },
-    { keyword: keywordStrategy.primaryKeywords?.[2] || `${productName} tips`, volume: '6,500', difficulty: 51, cpc: `28 ${symbol}`, trend: '📈 +31%' },
-    { keyword: keywordStrategy.secondaryKeywords?.[0] || `${productName} for beginners`, volume: '11,200', difficulty: 65, cpc: `38 ${symbol}`, trend: '📈 +12%' },
-    { keyword: keywordStrategy.secondaryKeywords?.[1] || `Advanced ${productName}`, volume: '4,100', difficulty: 48, cpc: `42 ${symbol}`, trend: '📈 +25%' },
-    { keyword: keywordStrategy.secondaryKeywords?.[2] || `${productName} comparison`, volume: '3,800', difficulty: 44, cpc: `25 ${symbol}`, trend: '📈 +28%' },
-    { keyword: keywordStrategy.longTailKeywords?.[0] || `${productName} for beginners 2026`, volume: '2,900', difficulty: 42, cpc: `35 ${symbol}`, trend: '📈 +15%' },
-    { keyword: keywordStrategy.longTailKeywords?.[1] || `${productName} cost in ${market}`, volume: '5,600', difficulty: 56, cpc: `48 ${symbol}`, trend: '📈 +8%' },
-    { keyword: keywordStrategy.longTailKeywords?.[2] || `${productName} reviews`, volume: '8,300', difficulty: 60, cpc: `22 ${symbol}`, trend: '📈 +20%' },
-    { keyword: keywordStrategy.longTailKeywords?.[3] || `Top ${productName}`, volume: '2,400', difficulty: 39, cpc: `40 ${symbol}`, trend: '📈 +19%' }
+    { keyword: keywordStrategy.primaryKeywords?.[0] || `${productName} guide`, volume: '14,800', difficulty: 72, cpc: `45 ${currencySymbol}`, trend: '📈 +18%' },
+    { keyword: keywordStrategy.primaryKeywords?.[1] || `Best ${productName}`, volume: '9,200', difficulty: 58, cpc: `32 ${currencySymbol}`, trend: '📈 +22%' },
+    { keyword: keywordStrategy.primaryKeywords?.[2] || `${productName} tips`, volume: '6,500', difficulty: 51, cpc: `28 ${currencySymbol}`, trend: '📈 +31%' },
+    { keyword: keywordStrategy.secondaryKeywords?.[0] || `${productName} for beginners`, volume: '11,200', difficulty: 65, cpc: `38 ${currencySymbol}`, trend: '📈 +12%' },
+    { keyword: keywordStrategy.secondaryKeywords?.[1] || `Advanced ${productName}`, volume: '4,100', difficulty: 48, cpc: `42 ${currencySymbol}`, trend: '📈 +25%' },
+    { keyword: keywordStrategy.secondaryKeywords?.[2] || `${productName} comparison`, volume: '3,800', difficulty: 44, cpc: `25 ${currencySymbol}`, trend: '📈 +28%' },
+    { keyword: keywordStrategy.longTailKeywords?.[0] || `${productName} for beginners 2026`, volume: '2,900', difficulty: 42, cpc: `35 ${currencySymbol}`, trend: '📈 +15%' },
+    { keyword: keywordStrategy.longTailKeywords?.[1] || `${productName} cost in ${market}`, volume: '5,600', difficulty: 56, cpc: `48 ${currencySymbol}`, trend: '📈 +8%' },
+    { keyword: keywordStrategy.longTailKeywords?.[2] || `${productName} reviews`, volume: '8,300', difficulty: 60, cpc: `22 ${currencySymbol}`, trend: '📈 +20%' },
+    { keyword: keywordStrategy.longTailKeywords?.[3] || `Top ${productName}`, volume: '2,400', difficulty: 39, cpc: `40 ${currencySymbol}`, trend: '📈 +19%' }
   ];
 
-  // Competitor data using real websites
+  // Competitor data using local websites
   const competitorData = competitorGap.topCompetitors?.map((c, i) => ({
-    name: realWebsites[i % realWebsites.length] || c || `Site${i+1}`,
+    name: localWebsites[i % localWebsites.length] || c || `Site${i+1}`,
     traffic: `${Math.round(50000 + Math.random() * 150000).toLocaleString()}`,
     dr: Math.round(40 + Math.random() * 40),
     weaknesses: ['Generic content', 'No depth', 'Outdated information'],
     opportunity: `Create detailed guide on ${productName}`
-  })) || realWebsites.slice(0, 5).map((site, i) => ({
+  })) || localWebsites.slice(0, 5).map((site, i) => ({
     name: site,
     traffic: `${Math.round(50000 + Math.random() * 150000).toLocaleString()}`,
     dr: Math.round(40 + Math.random() * 40),
@@ -181,12 +174,12 @@ export default function SEOReport({ data }) {
     month3: { week9: [`${productName} Deep Dive`, `${productName} Strategies`], week10: [`${productName} for Beginners`, `${productName} Pro`], week11: [`${productName} Review`, `${productName} Comparison`], week12: [`Ultimate ${productName} Guide`, `Complete FAQ`] }
   };
 
-  // Earning data with dynamic currency
+  // Earning data with dynamic currency — FULL TABLE
   const earningData = [
-    { source: 'AdSense', traffic: '14,000', rpm: `15 ${symbol}/click`, earning: `12,000 ${symbol}` },
-    { source: 'Affiliate Programs', traffic: '150 clicks', rpm: '20% commission', earning: `25,000 ${symbol}` },
-    { source: 'Sponsored Posts', traffic: '1 per month', rpm: `20,000 ${symbol} each`, earning: `20,000 ${symbol}` },
-    { source: 'Services/Consulting', traffic: '5 leads', rpm: `10,000 ${symbol} each`, earning: `50,000 ${symbol}` }
+    { source: 'AdSense', traffic: '14,000', rpm: `15 ${currencySymbol}/click`, earning: `12,000 ${currencySymbol}` },
+    { source: 'Affiliate Programs', traffic: '150 clicks', rpm: '20% commission', earning: `25,000 ${currencySymbol}` },
+    { source: 'Sponsored Posts', traffic: '1 per month', rpm: `20,000 ${currencySymbol} each`, earning: `20,000 ${currencySymbol}` },
+    { source: 'Services/Consulting', traffic: '5 leads', rpm: `10,000 ${currencySymbol} each`, earning: `50,000 ${currencySymbol}` }
   ];
 
   // Keyword Clusters
@@ -196,13 +189,13 @@ export default function SEOReport({ data }) {
     { name: 'Best Intent', keywords: [`${productName} Guide`, `${productName} Tips`, `${productName} for beginners`, `${productName} strategies`] }
   ];
 
-  // Backlink targets using real websites
+  // Backlink targets using local websites
   const backlinkTargets = backlinkStrategy.targetSites?.map((site, i) => ({
-    name: realWebsites[i % realWebsites.length] || site || `Site${i+1}`,
+    name: localWebsites[i % localWebsites.length] || site || `Site${i+1}`,
     da: Math.round(40 + Math.random() * 40),
     type: i % 2 === 0 ? 'Guest Post' : 'Link Insertion',
     topic: `${productName} ${['Guide', 'Tips', 'Review', 'Comparison', 'Trends'][i % 5]}`
-  })) || realWebsites.slice(0, 10).map((site, i) => ({
+  })) || localWebsites.slice(0, 10).map((site, i) => ({
     name: site,
     da: Math.round(40 + Math.random() * 40),
     type: i % 2 === 0 ? 'Guest Post' : 'Link Insertion',
@@ -323,7 +316,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#2dd4bf]/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a78bfa] to-[#2dd4bf] flex items-center justify-center shadow-lg shadow-[#a78bfa]/20"><BookOpen size={18} className="text-black" /></div>
-            <div><h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2><span className="text-[10px] text-gray-500 font-mono">{market} · {currency} · SEO Report</span></div>
+            <div><h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2><span className="text-[10px] text-gray-500 font-mono">{market} · {currencySymbol} · SEO Report</span></div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-3 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" /> Live</span>
@@ -353,7 +346,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
           <SectionDivider title="REAL KEYWORD DATA + SEARCH TREND" icon={Hash} />
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-mono">
-              <thead><tr className="border-b border-[#2dd4bf]/20"><th className="text-left py-2 px-2 text-gray-400 font-medium">Keyword</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Volume</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Difficulty</th><th className="text-left py-2 px-2 text-gray-400 font-medium">CPC ({symbol})</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Trend</th></tr></thead>
+              <thead><tr className="border-b border-[#2dd4bf]/20"><th className="text-left py-2 px-2 text-gray-400 font-medium">Keyword</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Volume</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Difficulty</th><th className="text-left py-2 px-2 text-gray-400 font-medium">CPC ({currencySymbol})</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Trend</th></tr></thead>
               <tbody>{keywordData.map((item, idx) => <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition"><td className="py-2 px-2 text-white font-medium">{item.keyword}</td><td className="py-2 px-2 text-gray-300">{item.volume}</td><td className="py-2 px-2"><div className="flex items-center gap-2"><span className="text-gray-300">{item.difficulty}</span><div className="w-12 h-1.5 bg-[#1E293B] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${item.difficulty}%`, backgroundColor: item.difficulty > 65 ? '#ef4444' : item.difficulty > 40 ? '#f59e0b' : '#34d399' }} /></div></div></td><td className="py-2 px-2 text-gray-300">{item.cpc}</td><td className="py-2 px-2 text-green-400">{item.trend}</td></tr>)}</tbody>
             </table>
           </div>
@@ -384,16 +377,35 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
           <div className="mt-4 p-3 bg-[#0F172A] rounded-xl border-l-2 border-[#2dd4bf]"><p className="text-[10px] text-gray-500 font-mono">📌 Strategy</p><p className="text-sm text-white font-medium">Create <span className="text-[#2dd4bf]">1 Pillar Page per Cluster</span> + 3-4 supporting articles per cluster, all interlinked.</p></div>
         </div>
 
-        {/* MONEY CALCULATOR */}
+        {/* MONEY CALCULATOR — FULL TABLE */}
         <div className="cyber-card rounded-2xl p-6">
           <SectionDivider title="MONEY CALCULATOR" icon={DollarSign} />
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-mono">
-              <thead><tr className="border-b border-[#2dd4bf]/20"><th className="text-left py-2 px-2 text-gray-400 font-medium">Traffic Source</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Monthly Traffic</th><th className="text-left py-2 px-2 text-gray-400 font-medium">RPM/Commission</th><th className="text-left py-2 px-2 text-gray-400 font-medium">Monthly Earning ({symbol})</th></tr></thead>
-              <tbody>{earningData.map((item, idx) => <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition"><td className="py-2 px-2 text-white font-medium">{item.source}</td><td className="py-2 px-2 text-gray-300">{item.traffic}</td><td className="py-2 px-2 text-[#2dd4bf]">{item.rpm}</td><td className="py-2 px-2 text-green-400 font-medium">{item.earning}</td></tr>)}</tbody>
+              <thead>
+                <tr className="border-b border-[#2dd4bf]/20">
+                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Traffic Source</th>
+                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Monthly Traffic</th>
+                  <th className="text-left py-2 px-2 text-gray-400 font-medium">RPM/Commission</th>
+                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Monthly Earning ({currencySymbol})</th>
+                </tr>
+              </thead>
+              <tbody>
+                {earningData.map((item, idx) => (
+                  <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition">
+                    <td className="py-2 px-2 text-white font-medium">{item.source}</td>
+                    <td className="py-2 px-2 text-gray-300">{item.traffic}</td>
+                    <td className="py-2 px-2 text-[#2dd4bf]">{item.rpm}</td>
+                    <td className="py-2 px-2 text-green-400 font-medium">{item.earning}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
-          <div className="mt-4 p-4 bg-gradient-to-r from-[#2dd4bf]/10 to-[#a78bfa]/10 rounded-xl border border-[#2dd4bf]/20"><p className="text-[10px] text-gray-500 font-mono">💰 Total Est. Month 4 Earnings</p><p className="text-2xl font-bold text-[#2dd4bf]">107,000 {symbol}</p></div>
+          <div className="mt-4 p-4 bg-gradient-to-r from-[#2dd4bf]/10 to-[#a78bfa]/10 rounded-xl border border-[#2dd4bf]/20">
+            <p className="text-[10px] text-gray-500 font-mono">💰 Total Est. Month 4 Earnings</p>
+            <p className="text-2xl font-bold text-[#2dd4bf]">107,000 {currencySymbol}</p>
+          </div>
         </div>
 
         {/* SERP + BACKLINK */}

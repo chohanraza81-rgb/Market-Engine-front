@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart3, 
@@ -29,7 +29,6 @@ const PremiumReport = ({ data, onExport }) => {
   });
   
   const [isExporting, setIsExporting] = useState(false);
-  const [copied, setCopied] = useState(false);
   const reportRef = useRef(null);
 
   // ============ TOGGLE SECTION ============
@@ -48,23 +47,23 @@ const PremiumReport = ({ data, onExport }) => {
   };
 
   const getScoreLabel = (score) => {
-    if (score >= 70) return 'Aggressive Entry';
-    if (score >= 50) return 'Test Waters';
-    return 'Avoid';
-  };
-
-  const getScoreEmoji = (score) => {
-    if (score >= 70) return '🚀';
-    if (score >= 50) return '⚡';
-    return '⚠️';
+    if (score >= 70) return 'Aggressive Entry 🚀';
+    if (score >= 50) return 'Test Waters ⚡';
+    return 'Avoid ⚠️';
   };
 
   // ============ FORMAT HELPERS ============
-  const formatCurrency = (amount, currency = '$') => {
+  const formatCurrency = (amount, currency = '₹') => {
     if (!amount) return 'N/A';
-    if (amount >= 1000000) return `${currency}${(amount / 1000000).toFixed(1)}M`;
-    if (amount >= 1000) return `${currency}${(amount / 1000).toFixed(1)}K`;
-    return `${currency}${amount.toFixed(0)}`;
+    // Indian number formatting
+    const num = Number(amount);
+    const formatter = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+    return formatter.format(num);
   };
 
   const formatPercent = (value) => {
@@ -74,19 +73,130 @@ const PremiumReport = ({ data, onExport }) => {
 
   const formatNumber = (num) => {
     if (!num) return '0';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
+    const formatter = new Intl.NumberFormat('en-IN');
+    return formatter.format(num);
   };
 
-  // ============ EXPORT FUNCTIONS ============
+  // ============ CALCULATE ROI & PROFIT ============
+  const calculateROI = (avgPrice, minPrice) => {
+    if (!avgPrice || !minPrice || minPrice === 0) return 0;
+    const roi = ((avgPrice - minPrice) / minPrice) * 100;
+    return Math.round(roi);
+  };
+
+  const calculateProfit = (avgPrice, minPrice) => {
+    if (!avgPrice || !minPrice) return 0;
+    return Math.round(avgPrice - minPrice);
+  };
+
+  // ============ EXPORT MARKDOWN - COMPLETE ============
+  const exportMarkdown = () => {
+    try {
+      const roi = calculateROI(data.avgPrice, data.minPrice);
+      const profit = calculateProfit(data.avgPrice, data.minPrice);
+      
+      let markdown = `# 📊 PROFITFORGE Pro - Market Intelligence Report\n\n`;
+      markdown += `## 🎯 Product: ${data.productName || 'N/A'}\n`;
+      markdown += `## 🌍 Market: ${data.country || 'N/A'}\n`;
+      markdown += `## 📅 Generated: ${new Date(data.generatedAt).toLocaleString()}\n\n`;
+      
+      markdown += `---\n\n`;
+      
+      // EXECUTIVE SUMMARY
+      markdown += `## 🚀 Executive Summary\n\n`;
+      markdown += `**Action Score:** ${data.actionScore || 0}% - ${getScoreLabel(data.actionScore || 0)}\n\n`;
+      markdown += `**Market Heat:** ${data.marketScore || 0}%\n\n`;
+      markdown += `**ROI Potential:** ${roi}%\n\n`;
+      markdown += `**Estimated Profit:** ${formatCurrency(profit)}\n\n`;
+      
+      // PRICE ANALYSIS
+      markdown += `## 💰 Price Analysis\n\n`;
+      markdown += `| Metric | Value |\n`;
+      markdown += `|--------|-------|\n`;
+      markdown += `| Average Price | ${formatCurrency(data.avgPrice)} |\n`;
+      markdown += `| Minimum Price | ${formatCurrency(data.minPrice)} |\n`;
+      markdown += `| Maximum Price | ${formatCurrency(data.maxPrice)} |\n`;
+      markdown += `| Price Spread | ${formatCurrency(data.priceSpread)} |\n`;
+      markdown += `| Total Products | ${data.prices?.length || 0} |\n`;
+      markdown += `| After Filtering | ${data.filteredCompetitors || data.prices?.length || 0} |\n`;
+      markdown += `| Outliers Removed | ${data.outlierRemoved || 0} |\n\n`;
+      
+      // COMPETITORS
+      markdown += `## 🏪 Top Competitors\n\n`;
+      markdown += `| # | Competitor | Price | Rating |\n`;
+      markdown += `|---|------------|-------|--------|\n`;
+      if (data.competitors && data.competitors.length > 0) {
+        data.competitors.slice(0, 15).forEach((c, i) => {
+          const name = c.title || c.name || 'Unknown';
+          const price = formatCurrency(c.price);
+          const rating = c.rating || 'N/A';
+          markdown += `| ${i+1} | ${name.substring(0, 50)}... | ${price} | ${rating} |\n`;
+        });
+      }
+      markdown += `\n*${data.competitors?.length || 0} total competitors*\n\n`;
+      
+      // MARKET METRICS
+      markdown += `## 📊 Market Metrics\n\n`;
+      markdown += `| Metric | Score |\n`;
+      markdown += `|--------|-------|\n`;
+      markdown += `| Market Heat | ${data.marketScore || 0}% |\n`;
+      markdown += `| Action Score | ${data.actionScore || 0}% |\n`;
+      markdown += `| ROI Potential | ${roi}% |\n`;
+      markdown += `| Profit Margin | ${data.profitMargin || 0}% |\n`;
+      markdown += `| Urgency | ${data.urgencyScore || 0}% |\n\n`;
+      
+      // AI INSIGHTS
+      if (data.aiInsights) {
+        markdown += `## 🧠 AI-Powered Insights\n\n`;
+        if (data.aiInsights.targetDemographic) {
+          markdown += `**Target Demographic:** ${data.aiInsights.targetDemographic}\n\n`;
+        }
+        if (data.aiInsights.recommendedPricing) {
+          markdown += `**Recommended Pricing:** ${data.aiInsights.recommendedPricing}\n\n`;
+        }
+        if (data.aiInsights.marketingAngles && data.aiInsights.marketingAngles.length > 0) {
+          markdown += `**Ad Headlines:**\n`;
+          data.aiInsights.marketingAngles.forEach(angle => {
+            markdown += `- ${angle}\n`;
+          });
+          markdown += `\n`;
+        }
+        if (data.aiInsights.keyInsights && data.aiInsights.keyInsights.length > 0) {
+          markdown += `**Key Insights:**\n`;
+          data.aiInsights.keyInsights.forEach(insight => {
+            markdown += `- ${insight}\n`;
+          });
+          markdown += `\n`;
+        }
+      }
+      
+      markdown += `---\n\n`;
+      markdown += `*Generated by PROFITFORGE Pro v6.0 - Market Intelligence*\n`;
+      markdown += `*100% Real Data - No Dummy Data*\n`;
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(markdown);
+      toast.success('Complete Markdown copied! 📋', {
+        icon: '✅',
+        style: { background: '#1a1a2e', color: '#fff' }
+      });
+      
+    } catch (error) {
+      toast.error('Failed to export Markdown', {
+        icon: '❌',
+        style: { background: '#1a1a2e', color: '#fff' }
+      });
+    }
+  };
+
+  // ============ EXPORT CSV ============
   const exportCSV = () => {
     try {
       const headers = ['Product', 'Price', 'Source', 'Rating', 'Reviews'];
       const rows = data.competitors?.map(c => [
-        c.title || c.name || 'N/A',
+        (c.title || c.name || 'Unknown').replace(/,/g, ' '),
         c.price || 0,
-        c.source || 'N/A',
+        c.source && c.source !== 'N/A' ? c.source : 'Various',
         c.rating || 0,
         c.reviews || 0
       ]) || [];
@@ -104,8 +214,8 @@ const PremiumReport = ({ data, onExport }) => {
       a.click();
       URL.revokeObjectURL(url);
       
-      toast.success('CSV exported successfully!', {
-        icon: '📊',
+      toast.success('CSV exported successfully! 📊', {
+        icon: '✅',
         style: { background: '#1a1a2e', color: '#fff' }
       });
     } catch (error) {
@@ -116,50 +226,7 @@ const PremiumReport = ({ data, onExport }) => {
     }
   };
 
-  const exportMarkdown = () => {
-    try {
-      let markdown = `# PROFITFORGE Pro - Market Intelligence Report\n\n`;
-      markdown += `## Product: ${data.productName || 'N/A'}\n`;
-      markdown += `## Market: ${data.country || 'N/A'}\n\n`;
-      
-      markdown += `### Action Score: ${data.actionScore || 0}%\n`;
-      markdown += `### Market Score: ${data.marketScore || 0}%\n\n`;
-      
-      if (data.prices && data.prices.length > 0) {
-        markdown += `### Price Analysis\n`;
-        markdown += `- Average: ${formatCurrency(data.avgPrice, data.currencySymbol || '$')}\n`;
-        markdown += `- Min: ${formatCurrency(data.minPrice, data.currencySymbol || '$')}\n`;
-        markdown += `- Max: ${formatCurrency(data.maxPrice, data.currencySymbol || '$')}\n`;
-        markdown += `- Spread: ${formatCurrency(data.priceSpread, data.currencySymbol || '$')}\n\n`;
-      }
-      
-      if (data.competitors && data.competitors.length > 0) {
-        markdown += `### Top Competitors\n`;
-        data.competitors.slice(0, 10).forEach((c, i) => {
-          markdown += `${i+1}. ${c.name || c.title || 'Unknown'} - ${formatCurrency(c.price, data.currencySymbol || '$')}\n`;
-        });
-      }
-      
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.productName || 'report'}-report.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      toast.success('Markdown exported successfully!', {
-        icon: '📝',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-    } catch (error) {
-      toast.error('Failed to export Markdown', {
-        icon: '❌',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-    }
-  };
-
+  // ============ EXPORT PDF ============
   const exportPDF = async () => {
     if (!reportRef.current) {
       toast.error('Report not ready', {
@@ -204,9 +271,9 @@ const PremiumReport = ({ data, onExport }) => {
       
       pdf.save(`${data.productName || 'report'}-analysis.pdf`);
       
-      toast.success('PDF downloaded successfully!', {
+      toast.success('PDF downloaded successfully! 📄', {
         id: 'pdf-export',
-        icon: '📄',
+        icon: '✅',
         style: { background: '#1a1a2e', color: '#fff' }
       });
     } catch (error) {
@@ -217,23 +284,6 @@ const PremiumReport = ({ data, onExport }) => {
       });
     } finally {
       setIsExporting(false);
-    }
-  };
-
-  const copyToClipboard = (content) => {
-    try {
-      navigator.clipboard.writeText(content);
-      setCopied(true);
-      toast.success('Copied to clipboard!', {
-        icon: '📋',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-      setTimeout(() => setCopied(false), 3000);
-    } catch (error) {
-      toast.error('Failed to copy', {
-        icon: '❌',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
     }
   };
 
@@ -252,6 +302,10 @@ const PremiumReport = ({ data, onExport }) => {
     );
   }
 
+  // Calculate ROI and Profit
+  const roi = calculateROI(data.avgPrice, data.minPrice);
+  const profit = calculateProfit(data.avgPrice, data.minPrice);
+
   return (
     <motion.div
       ref={reportRef}
@@ -262,11 +316,8 @@ const PremiumReport = ({ data, onExport }) => {
     >
       {/* ============ HEADER ============ */}
       <div className="bg-gradient-to-br from-[#0D1117] via-[#0D1117]/95 to-[#080B12] rounded-3xl border border-white/10 p-6 sm:p-8 relative overflow-hidden">
-        {/* Background Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#2dd4bf]/5 rounded-full blur-[80px]" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#a78bfa]/5 rounded-full blur-[80px]" />
-        
-        {/* Gold Accent */}
         <div className="absolute top-0 left-0 w-32 h-px bg-gradient-to-r from-[#2dd4bf]/50 via-[#a78bfa]/50 to-transparent" />
         
         <div className="relative z-10">
@@ -288,12 +339,14 @@ const PremiumReport = ({ data, onExport }) => {
                     <Clock className="w-3 h-3" />
                     {new Date(data.generatedAt).toLocaleString()}
                   </span>
-                  {data.totalCompetitors && (
-                    <span className="text-sm text-gray-400 flex items-center gap-1">
-                      <ShoppingBag className="w-3 h-3" />
-                      {data.totalCompetitors} competitors
-                    </span>
-                  )}
+                  <span className="text-sm text-gray-400 flex items-center gap-1">
+                    <ShoppingBag className="w-3 h-3" />
+                    {data.totalCompetitors || 0} competitors
+                  </span>
+                  <span className="text-sm text-[#2dd4bf] flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    {data.filteredCompetitors || data.prices?.length || 0} after filtering
+                  </span>
                 </div>
               </div>
             </div>
@@ -335,7 +388,7 @@ const PremiumReport = ({ data, onExport }) => {
                 </div>
               </div>
 
-              {/* Market Score */}
+              {/* Market Heat */}
               <div className="text-center">
                 <div className="relative w-16 h-16">
                   <svg className="w-16 h-16 transform -rotate-90">
@@ -351,7 +404,7 @@ const PremiumReport = ({ data, onExport }) => {
                     <circle
                       className="transition-all duration-1000"
                       strokeWidth="5"
-                      stroke="#a78bfa"
+                      stroke={data.marketScore >= 60 ? '#34d399' : data.marketScore >= 40 ? '#f59e0b' : '#ef4444'}
                       fill="transparent"
                       r="26"
                       cx="32"
@@ -362,44 +415,74 @@ const PremiumReport = ({ data, onExport }) => {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-sm font-bold text-white">{data.marketScore || 0}%</span>
-                    <span className="text-[7px] text-gray-400 uppercase tracking-wider">Market</span>
+                    <span className="text-[7px] text-gray-400 uppercase tracking-wider">Heat</span>
                   </div>
                 </div>
               </div>
 
-              {/* Profit Margin */}
-              {data.profitMargin !== undefined && (
-                <div className="text-center">
-                  <div className="relative w-16 h-16">
-                    <svg className="w-16 h-16 transform -rotate-90">
-                      <circle
-                        className="text-white/5"
-                        strokeWidth="5"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="26"
-                        cx="32"
-                        cy="32"
-                      />
-                      <circle
-                        className="transition-all duration-1000"
-                        strokeWidth="5"
-                        stroke={data.profitMargin >= 30 ? '#34d399' : data.profitMargin >= 15 ? '#f59e0b' : '#ef4444'}
-                        fill="transparent"
-                        r="26"
-                        cx="32"
-                        cy="32"
-                        strokeDasharray={`${((data.profitMargin || 0) / 100) * 163.36} 163.36`}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-sm font-bold text-white">{data.profitMargin || 0}%</span>
-                      <span className="text-[7px] text-gray-400 uppercase tracking-wider">Margin</span>
-                    </div>
+              {/* ROI */}
+              <div className="text-center">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 transform -rotate-90">
+                    <circle
+                      className="text-white/5"
+                      strokeWidth="5"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="26"
+                      cx="32"
+                      cy="32"
+                    />
+                    <circle
+                      className="transition-all duration-1000"
+                      strokeWidth="5"
+                      stroke={roi >= 30 ? '#34d399' : roi >= 15 ? '#f59e0b' : '#ef4444'}
+                      fill="transparent"
+                      r="26"
+                      cx="32"
+                      cy="32"
+                      strokeDasharray={`${(Math.min(roi, 100) / 100) * 163.36} 163.36`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-sm font-bold text-white">{roi}%</span>
+                    <span className="text-[7px] text-gray-400 uppercase tracking-wider">ROI</span>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Profit */}
+              <div className="text-center">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 transform -rotate-90">
+                    <circle
+                      className="text-white/5"
+                      strokeWidth="5"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="26"
+                      cx="32"
+                      cy="32"
+                    />
+                    <circle
+                      className="transition-all duration-1000"
+                      strokeWidth="5"
+                      stroke={profit > 0 ? '#34d399' : '#ef4444'}
+                      fill="transparent"
+                      r="26"
+                      cx="32"
+                      cy="32"
+                      strokeDasharray={`100 163.36`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-sm font-bold text-white">{formatCurrency(profit)}</span>
+                    <span className="text-[7px] text-gray-400 uppercase tracking-wider">Profit</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Export Buttons */}
               <div className="flex flex-col gap-1 ml-2">
@@ -432,39 +515,48 @@ const PremiumReport = ({ data, onExport }) => {
       </div>
 
       {/* ============ EXECUTIVE SUMMARY ============ */}
-      {data.executiveSummary && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gradient-to-r from-[#2dd4bf]/10 via-[#a78bfa]/5 to-transparent border border-[#2dd4bf]/20 rounded-2xl p-6 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-[#2dd4bf]/5 rounded-full blur-[60px]" />
-          <div className="relative flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-[#2dd4bf]/20 border border-[#2dd4bf]/30 flex-shrink-0">
-              <Zap className="w-6 h-6 text-[#2dd4bf]" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                Executive Summary
-                <span className="text-xs text-gray-500 font-normal">AI-Powered</span>
-              </h3>
-              <p className="text-gray-300 mt-2 leading-relaxed">
-                {data.executiveSummary.verdict || 'Analysis complete. See detailed metrics below.'}
-              </p>
-              {data.executiveSummary.priorityActions && data.executiveSummary.priorityActions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {data.executiveSummary.priorityActions.map((action, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-white/5 rounded-full text-xs text-gray-300 border border-white/5">
-                      <Check className="w-3 h-3 text-[#2dd4bf]" />
-                      {i+1}. {action}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+      <div className="bg-gradient-to-r from-[#2dd4bf]/10 via-[#a78bfa]/5 to-transparent border border-[#2dd4bf]/20 rounded-2xl p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-[#2dd4bf]/5 rounded-full blur-[60px]" />
+        <div className="relative flex items-start gap-4">
+          <div className="p-3 rounded-xl bg-[#2dd4bf]/20 border border-[#2dd4bf]/30 flex-shrink-0">
+            <Zap className="w-6 h-6 text-[#2dd4bf]" />
           </div>
-        </motion.div>
-      )}
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              Executive Summary
+              <span className="text-xs text-gray-500 font-normal">AI-Powered</span>
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+              <div>
+                <p className="text-xs text-gray-400">Action Score</p>
+                <p className="text-xl font-bold text-[#2dd4bf]">{data.actionScore || 0}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Market Heat</p>
+                <p className="text-xl font-bold text-[#a78bfa]">{data.marketScore || 0}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">ROI Potential</p>
+                <p className="text-xl font-bold text-[#34d399]">{roi}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Est. Profit</p>
+                <p className="text-xl font-bold text-[#f59e0b]">{formatCurrency(profit)}</p>
+              </div>
+            </div>
+            {data.aiInsights?.keyInsights && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {data.aiInsights.keyInsights.slice(0, 2).map((insight, i) => (
+                  <span key={i} className="text-sm text-gray-300 flex items-center gap-1">
+                    <Check className="w-3 h-3 text-[#2dd4bf]" />
+                    {insight}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ============ PRICE SPREAD CHART ============ */}
       {data.prices && data.prices.length > 0 && (
@@ -480,15 +572,15 @@ const PremiumReport = ({ data, onExport }) => {
               <div className="text-left">
                 <span className="text-white font-medium">Price Spread Analysis</span>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {data.prices.length} products • {data.currencySymbol || '$'}{data.avgPrice?.toFixed(0) || 0} average
+                  {data.prices.length} products • {formatCurrency(data.avgPrice)} average
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-gray-400">Min: <span className="text-white">{data.currencySymbol || '$'}{data.minPrice?.toFixed(0) || 0}</span></span>
-                <span className="text-gray-400">Max: <span className="text-white">{data.currencySymbol || '$'}{data.maxPrice?.toFixed(0) || 0}</span></span>
-                <span className="text-gray-400">Spread: <span className="text-[#2dd4bf]">{data.currencySymbol || '$'}{data.priceSpread?.toFixed(0) || 0}</span></span>
+                <span className="text-gray-400">Min: <span className="text-white">{formatCurrency(data.minPrice)}</span></span>
+                <span className="text-gray-400">Max: <span className="text-white">{formatCurrency(data.maxPrice)}</span></span>
+                <span className="text-gray-400">Spread: <span className="text-[#2dd4bf]">{formatCurrency(data.priceSpread)}</span></span>
               </div>
               {expandedSections.pricing ? (
                 <ChevronDown className="w-5 h-5 text-gray-400" />
@@ -507,38 +599,33 @@ const PremiumReport = ({ data, onExport }) => {
                 className="overflow-hidden"
               >
                 <div className="p-5 pt-0 border-t border-white/5">
-                  {/* Price Bars */}
-                  <div className="space-y-2">
-                    {data.prices && data.prices.length > 0 && (
-                      <div className="space-y-3">
-                        {data.prices.slice(0, 20).map((price, i) => {
-                          const max = Math.max(...data.prices);
-                          const percentage = (price / max) * 100;
-                          return (
-                            <div key={i} className="flex items-center gap-3 group">
-                              <span className="text-xs text-gray-500 w-8 text-right">{i+1}.</span>
-                              <div className="flex-1 relative">
-                                <div className="h-8 bg-white/5 rounded-lg overflow-hidden group-hover:bg-white/10 transition-colors">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${percentage}%` }}
-                                    transition={{ duration: 0.5, delay: i * 0.02 }}
-                                    className="h-full rounded-lg bg-gradient-to-r from-[#2dd4bf]/60 to-[#a78bfa]/40"
-                                    style={{ width: `${percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="text-sm font-medium text-white w-24 text-right">
-                                {data.currencySymbol || '$'}{price.toFixed(0)}
-                              </span>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    {data.prices.slice(0, 25).map((price, i) => {
+                      const max = Math.max(...data.prices);
+                      const percentage = (price / max) * 100;
+                      return (
+                        <div key={i} className="flex items-center gap-3 group">
+                          <span className="text-xs text-gray-500 w-8 text-right">{i+1}.</span>
+                          <div className="flex-1 relative">
+                            <div className="h-8 bg-white/5 rounded-lg overflow-hidden group-hover:bg-white/10 transition-colors">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${percentage}%` }}
+                                transition={{ duration: 0.5, delay: i * 0.02 }}
+                                className="h-full rounded-lg bg-gradient-to-r from-[#2dd4bf]/60 to-[#a78bfa]/40"
+                                style={{ width: `${percentage}%` }}
+                              />
                             </div>
-                          );
-                        })}
-                        {data.prices.length > 20 && (
-                          <div className="text-center text-xs text-gray-500 pt-2">
-                            + {data.prices.length - 20} more products
                           </div>
-                        )}
+                          <span className="text-sm font-medium text-white w-32 text-right font-mono">
+                            {formatCurrency(price)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {data.prices.length > 25 && (
+                      <div className="text-center text-xs text-gray-500 pt-2">
+                        + {data.prices.length - 25} more products
                       </div>
                     )}
                   </div>
@@ -584,12 +671,12 @@ const PremiumReport = ({ data, onExport }) => {
               >
                 <div className="p-5 pt-0 border-t border-white/5">
                   <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {data.competitors.slice(0, 15).map((competitor, i) => (
+                    {data.competitors.slice(0, 20).map((competitor, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.03 }}
+                        transition={{ delay: i * 0.02 }}
                         className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all group border border-white/5 hover:border-white/10"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -599,7 +686,9 @@ const PremiumReport = ({ data, onExport }) => {
                               {competitor.title || competitor.name || 'Unknown'}
                             </p>
                             <p className="text-xs text-gray-500 truncate">
-                              {competitor.source || 'Unknown source'}
+                              {competitor.source && competitor.source !== 'N/A' && competitor.source !== 'Unknown source' 
+                                ? competitor.source 
+                                : 'Various sellers'}
                             </p>
                           </div>
                         </div>
@@ -611,15 +700,15 @@ const PremiumReport = ({ data, onExport }) => {
                               <span className="text-gray-500">({competitor.reviews || 0})</span>
                             </div>
                           )}
-                          <span className="text-sm font-bold text-white min-w-[80px] text-right">
-                            {data.currencySymbol || '$'}{competitor.price?.toFixed(0) || 0}
+                          <span className="text-sm font-bold text-white min-w-[100px] text-right font-mono">
+                            {formatCurrency(competitor.price || 0)}
                           </span>
                         </div>
                       </motion.div>
                     ))}
-                    {data.competitors.length > 15 && (
+                    {data.competitors.length > 20 && (
                       <div className="text-center text-xs text-gray-500 py-2">
-                        + {data.competitors.length - 15} more competitors
+                        + {data.competitors.length - 20} more competitors
                       </div>
                     )}
                   </div>
@@ -652,8 +741,8 @@ const PremiumReport = ({ data, onExport }) => {
           <div className="inline-flex p-2 rounded-xl bg-[#34d399]/10 border border-[#34d399]/20 mb-2">
             <TrendingUp className="w-5 h-5 text-[#34d399]" />
           </div>
-          <p className="text-2xl font-bold text-white">{data.profitMargin || 0}%</p>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">Profit Margin</p>
+          <p className="text-2xl font-bold text-white">{roi}%</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">ROI Potential</p>
         </div>
 
         <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 p-5 text-center">
@@ -717,129 +806,34 @@ const PremiumReport = ({ data, onExport }) => {
                     <p className="text-white text-sm">{data.aiInsights.targetDemographic}</p>
                   </div>
                 )}
-                {data.aiInsights.marketOpportunity !== undefined && (
+                {data.aiInsights.recommendedPricing && (
                   <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Market Opportunity</p>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] rounded-full" style={{ width: `${data.aiInsights.marketOpportunity || 0}%` }} />
-                      </div>
-                      <span className="text-white font-medium text-sm">{data.aiInsights.marketOpportunity || 0}%</span>
-                    </div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Recommended Pricing</p>
+                    <p className="text-white text-sm">{data.aiInsights.recommendedPricing}</p>
                   </div>
                 )}
-                {data.aiInsights.keyInsights && data.aiInsights.keyInsights.length > 0 && (
+                {data.aiInsights.supplierSuggestion && (
                   <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Key Insights</p>
-                    <ul className="space-y-1">
-                      {data.aiInsights.keyInsights.slice(0, 3).map((insight, i) => (
-                        <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                          <Check className="w-3 h-3 text-[#2dd4bf] flex-shrink-0 mt-0.5" />
-                          {insight}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Supplier Suggestion</p>
+                    <p className="text-white text-sm">{data.aiInsights.supplierSuggestion}</p>
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ============ STRATEGY SECTION ============ */}
-      {data.aiInsights && (data.aiInsights.marketingAngles || data.aiInsights.recommendedPricing || data.aiInsights.targetDemographic) && (
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-          <button
-            onClick={() => toggleSection('strategy')}
-            className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/20">
-                <Rocket className="w-5 h-5 text-[#f59e0b]" />
-              </div>
-              <div className="text-left">
-                <span className="text-white font-medium">Mining Strategy</span>
-                <p className="text-xs text-gray-500 mt-0.5">Actionable recommendations</p>
-              </div>
-            </div>
-            {expandedSections.strategy ? (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            )}
-          </button>
-
-          <AnimatePresence>
-            {expandedSections.strategy && (
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: 'auto' }}
-                exit={{ height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-5 pt-0 border-t border-white/5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {data.aiInsights.targetDemographic && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                          <Users className="w-3 h-3" />
-                          Target Demographic
-                        </p>
-                        <p className="text-sm text-white">{data.aiInsights.targetDemographic}</p>
-                      </div>
-                    )}
-                    
-                    {data.aiInsights.recommendedPricing && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                          <DollarSign className="w-3 h-3" />
-                          Recommended Pricing
-                        </p>
-                        <p className="text-sm text-white">{data.aiInsights.recommendedPricing}</p>
-                      </div>
-                    )}
-
-                    {data.aiInsights.supplierSuggestion && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 md:col-span-2">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                          <Link className="w-3 h-3" />
-                          Supplier Suggestion
-                        </p>
-                        <p className="text-sm text-white">{data.aiInsights.supplierSuggestion}</p>
-                      </div>
-                    )}
-
-                    {data.aiInsights.seasonality && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                          <Clock className="w-3 h-3" />
-                          Seasonality
-                        </p>
-                        <p className="text-sm text-white">{data.aiInsights.seasonality}</p>
-                      </div>
-                    )}
-
-                    {data.aiInsights.marketingAngles && data.aiInsights.marketingAngles.length > 0 && (
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 md:col-span-2">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                          <Share2 className="w-3 h-3" />
-                          Ad Headlines & Marketing Angles
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {data.aiInsights.marketingAngles.map((angle, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-white/10 rounded-lg text-sm text-gray-300 border border-white/5">
-                              {angle}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {data.aiInsights.marketingAngles && data.aiInsights.marketingAngles.length > 0 && (
+              <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/5">
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Ad Headlines & Marketing Angles</p>
+                <div className="flex flex-wrap gap-2">
+                  {data.aiInsights.marketingAngles.map((angle, i) => (
+                    <span key={i} className="px-3 py-1.5 bg-white/10 rounded-lg text-sm text-gray-300 border border-white/5">
+                      {angle}
+                    </span>
+                  ))}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+          </div>
         </div>
       )}
 
@@ -849,11 +843,11 @@ const PremiumReport = ({ data, onExport }) => {
           <span>PROFITFORGE Pro v6.0</span>
           <span>•</span>
           <span>Market Intelligence</span>
+          <span>•</span>
+          <span className="text-[#2dd4bf]">100% Real Data</span>
         </div>
         <div className="flex items-center gap-4">
           <span>Generated: {new Date(data.generatedAt).toLocaleString()}</span>
-          <span>•</span>
-          <span className="text-[#2dd4bf]">100% Real Data</span>
         </div>
       </div>
 

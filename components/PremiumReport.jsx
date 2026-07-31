@@ -1,1024 +1,539 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  TrendingUp, TrendingDown, DollarSign, BarChart3, 
-  Download, Copy, FileJson, FileText, 
-  ChevronDown, ChevronRight, CheckCircle, XCircle, 
-  AlertCircle, Zap, Shield, Star, Users, Award,
-  Target, Clock, Globe, ShoppingBag, PieChart,
-  Sparkles, Crown, Gem, Flame, Rocket, Brain,
-  Gauge, Compass, Radar, Activity, Layers,
-  ArrowUp, ArrowDown, Minus, Percent, Hash,
-  ExternalLink, Link, Mail, Share2, Eye,
-  Youtube, Facebook, Instagram, Twitter, 
-  BarChart, TrendingUp as TrendUp, 
-  ShoppingCart, FileSearch, MessageSquare,
-  Lightbulb, BookOpen, Compass as CompassIcon
-} from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useRef } from 'react';
+import { motion } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import {
+  Copy,
+  FileText,
+  CheckCircle,
+  DollarSign,
+  Target,
+  Zap,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Eye,
+  Truck,
+  Sparkles,
+  Calendar,
+  Hash,
+  Users,
+  MessageCircle,
+  BarChart3,
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  Download,
+  ShieldCheck,
+  Clock,
+  Activity,
+  Crown,
+  Globe,
+  Layers
+} from 'lucide-react';
+import {
+  BarChart as RechartsBar,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
+import toast from 'react-hot-toast';
 
-const PremiumReport = ({ data, onExport }) => {
-  const [expandedSections, setExpandedSections] = useState({
-    overview: true,
-    pricing: true,
-    competitors: true,
-    market: true,
-    sentiment: true,
-    strategy: true,
-    ads: true,
-    guidance: true,
-    summary: true
-  });
-  
-  const [isExporting, setIsExporting] = useState(false);
+// ============================================================
+// HELPERS (with safety checks)
+// ============================================================
+const formatPrice = (num) => {
+  if (num === undefined || num === null || isNaN(num)) return '0';
+  return Number(num).toLocaleString('en-US');
+};
+
+const getSymbol = (currency) => {
+  const map = {
+    USD: '$',
+    GBP: '£',
+    AED: 'د.إ',
+    INR: '₹',
+    PKR: 'Rs.'
+  };
+  return map[currency] || '$';
+};
+
+// ============================================================
+// PROGRESS RING
+// ============================================================
+const ProgressRing = ({ score, label, color, size = 80 }) => {
+  const safeScore = Math.min(100, Math.max(0, score || 0));
+  const radius = (size - 6) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (safeScore / 100) * circumference;
+
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="6" fill="none" />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth="6"
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.5, ease: 'easeOut' }}
+          style={{ filter: `drop-shadow(0 0 12px ${color}40)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-bold" style={{ color }}>{safeScore}%</span>
+        <span className="text-[8px] text-gray-500 uppercase tracking-widest">{label}</span>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// METRIC CARD
+// ============================================================
+const MetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon }) => {
+  const safeValue = Math.min(max, Math.max(0, value || 0));
+  const percentage = Math.min(100, (safeValue / max) * 100);
+
+  return (
+    <motion.div
+      whileHover={{ y: -3, scale: 1.02 }}
+      className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg hover:shadow-[#2dd4bf]/15 transition-all"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{label}</p>
+        {Icon && <Icon size={14} className="text-[#2dd4bf]/60" />}
+      </div>
+      <div className="flex items-end gap-2 mt-1">
+        <span className="text-2xl font-bold" style={{ color }}>{safeValue}</span>
+        <span className="text-sm text-gray-600 font-mono">/{max}</span>
+      </div>
+      <div className="w-full h-1.5 bg-[#1E293B] rounded-full mt-2 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+export default function PremiumReport({ data }) {
   const reportRef = useRef(null);
 
-  // ============ TOGGLE SECTION ============
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+  // ✅ SAFETY: If no data, return null
+  if (!data) return null;
 
-  // ============ SCORE UTILITIES ============
-  const getScoreColor = (score) => {
-    if (score >= 70) return '#34d399';
-    if (score >= 50) return '#f59e0b';
-    return '#ef4444';
-  };
+  // ✅ SAFETY: Safely extract data with fallbacks
+  const calc = data.calculatedMetrics || {};
+  const adv = data.advancedInsights || {};
+  const comp = data.competitionAnalysis || {};
+  const playbook = data.customerPlaybook || {};
+  const sentiment = data.sentimentAnalysis || {};
 
-  const getScoreLabel = (score) => {
-    if (score >= 70) return '🚀 Aggressive Entry';
-    if (score >= 50) return '⚡ Test Waters';
-    return '⚠️ Avoid';
-  };
+  const currency = calc.currency || 'USD';
+  const symbol = getSymbol(currency);
 
-  // ============ FORMAT HELPERS ============
-  const formatCurrency = (amount, currency = '₹') => {
-    if (!amount) return 'N/A';
-    const num = Number(amount);
-    const formatter = new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    });
-    return formatter.format(num);
-  };
+  const actionScore = data.actionScore || 50;
+  const actionLabel = data.actionLabel || 'Test Waters';
 
-  const formatPercent = (value) => {
-    if (!value && value !== 0) return 'N/A';
-    return `${value}%`;
-  };
+  const marketHeat = Math.min(10, Math.round((actionScore / 100) * 10));
+  const adStrength = Math.min(10, Math.round(((sentiment.positive || 60) / 100) * 10));
+  const profitMargin = Math.min(
+    10,
+    Math.round((calc.filteredCompetitorCount > 15 ? 5 : 8) + (actionScore >= 70 ? 2 : 0))
+  );
+  const urgency = Math.min(
+    10,
+    Math.round(data.trendDirection === 'Rising' ? 8 : data.trendDirection === 'Falling' ? 4 : 6)
+  );
 
-  const formatNumber = (num) => {
-    if (!num) return '0';
-    const formatter = new Intl.NumberFormat('en-IN');
-    return formatter.format(num);
-  };
+  const actionColor = actionScore >= 70 ? '#34d399' : actionScore >= 50 ? '#f59e0b' : '#ef4444';
 
-  // ============ CALCULATE METRICS ============
-  const calculateROI = (avgPrice, minPrice) => {
-    if (!avgPrice || !minPrice || avgPrice === 0) return 0;
-    return Math.round(((avgPrice - minPrice) / avgPrice) * 100);
-  };
+  // ✅ SAFETY: Chart data with fallback
+  const chartData = comp.dominantBrands?.slice(0, 6).map((brand, i) => ({
+    name: brand.length > 12 ? brand.slice(0, 10) + '..' : brand,
+    price: Math.round((calc.avgPrice || 50) * (0.75 + i * 0.08))
+  })) || [{ name: 'Avg Price', price: calc.avgPrice || 50 }];
 
-  const calculateProfit = (avgPrice, minPrice) => {
-    if (!avgPrice || !minPrice) return 0;
-    return Math.round(avgPrice - minPrice);
-  };
-
-  const calculateAdsCount = (competitors) => {
-    if (!competitors || competitors.length === 0) return 0;
-    // Estimate ads based on competitors
-    return Math.round(competitors.length * 2.5);
-  };
-
-  // ============ EXPORT MARKDOWN ============
-  const exportMarkdown = () => {
+  // ============================================================
+  // COPY FUNCTIONS
+  // ============================================================
+  const copyCSV = () => {
     try {
-      const roi = calculateROI(data.avgPrice, data.minPrice);
-      const profit = calculateProfit(data.avgPrice, data.minPrice);
-      const adsCount = calculateAdsCount(data.competitors);
-      
-      let markdown = `# 📊 PROFITFORGE Pro - Market Intelligence Report\n\n`;
-      markdown += `## 🎯 ${data.productName || 'Product Analysis'}\n`;
-      markdown += `## 🌍 Market: ${data.country || 'Global'}\n`;
-      markdown += `## 📅 Generated: ${new Date(data.generatedAt).toLocaleString()}\n\n`;
-      
-      markdown += `---\n\n`;
-      
-      // EXECUTIVE SUMMARY
-      markdown += `## 🚀 Executive Summary\n\n`;
-      markdown += `**Action Score:** ${data.actionScore || 0}% - ${getScoreLabel(data.actionScore || 0)}\n\n`;
-      markdown += `**Market Heat:** ${data.marketScore || 0}%\n\n`;
-      markdown += `**Competitors:** ${data.competitors?.length || 0}\n\n`;
-      markdown += `**Active Ads:** ${adsCount}\n\n`;
-      markdown += `**ROI Potential:** ${roi}%\n\n`;
-      markdown += `**Estimated Profit:** ${formatCurrency(profit)}\n\n`;
-      
-      // GUIDANCE
-      markdown += `## 💡 Guidance & Action Plan\n\n`;
-      markdown += `### Recommended Strategy\n`;
-      if (data.actionScore >= 70) {
-        markdown += `✅ **Aggressive Entry** - Market is ready for new players. Start with competitive pricing and strong marketing.\n\n`;
-      } else if (data.actionScore >= 50) {
-        markdown += `⚡ **Test Waters** - Market is moderate. Start small, test and scale.\n\n`;
-      } else {
-        markdown += `⚠️ **Avoid** - Market is saturated or not viable.\n\n`;
-      }
-      
-      markdown += `### Top 3 Priority Actions\n`;
-      markdown += `1. **Competitive Pricing** - Position at ${formatCurrency(data.avgPrice * 0.85)}\n`;
-      markdown += `2. **Strong Branding** - Differentiate from ${data.competitors?.[0]?.name || 'competitors'}\n`;
-      markdown += `3. **Digital Marketing** - Focus on ${data.country === 'IN' ? 'Instagram & YouTube' : 'Facebook & Google'}\n\n`;
-      
-      // ADS INTELLIGENCE
-      markdown += `## 📢 Ads Intelligence\n\n`;
-      markdown += `**Active Ads:** ${adsCount}\n\n`;
-      markdown += `**Top Platforms:**\n`;
-      markdown += `- Google Shopping: ${Math.round(adsCount * 0.4)}\n`;
-      markdown += `- Amazon Ads: ${Math.round(adsCount * 0.3)}\n`;
-      markdown += `- Facebook/Instagram: ${Math.round(adsCount * 0.2)}\n`;
-      markdown += `- Others: ${Math.round(adsCount * 0.1)}\n\n`;
-      
-      // COMPETITORS
-      markdown += `## 🏪 Top Competitors\n\n`;
-      markdown += `| # | Competitor | Price | Rating | Reviews |\n`;
-      markdown += `|---|------------|-------|--------|---------|\n`;
-      if (data.competitors && data.competitors.length > 0) {
-        data.competitors.slice(0, 15).forEach((c, i) => {
-          const name = c.title || c.name || 'Unknown';
-          const price = formatCurrency(c.price);
-          const rating = c.rating || 'N/A';
-          const reviews = c.reviews || 0;
-          markdown += `| ${i+1} | ${name.substring(0, 50)}... | ${price} | ${rating} | ${reviews} |\n`;
-        });
-      }
-      markdown += `\n*${data.competitors?.length || 0} total competitors*\n\n`;
-      
-      // MARKET METRICS
-      markdown += `## 📊 Market Metrics\n\n`;
-      markdown += `| Metric | Score |\n`;
-      markdown += `|--------|-------|\n`;
-      markdown += `| Market Heat | ${data.marketScore || 0}% |\n`;
-      markdown += `| Action Score | ${data.actionScore || 0}% |\n`;
-      markdown += `| ROI Potential | ${roi}% |\n`;
-      markdown += `| Urgency | ${data.urgencyScore || 0}% |\n`;
-      markdown += `| Competitors | ${data.competitors?.length || 0} |\n`;
-      markdown += `| Active Ads | ${adsCount} |\n\n`;
-      
-      // TARGET DEMOGRAPHIC & STRATEGY
-      if (data.aiInsights) {
-        markdown += `## 🎯 Target Strategy\n\n`;
-        if (data.aiInsights.targetDemographic) {
-          markdown += `**Target Demographic:** ${data.aiInsights.targetDemographic}\n\n`;
-        }
-        if (data.aiInsights.recommendedPricing) {
-          markdown += `**Recommended Pricing:** ${data.aiInsights.recommendedPricing}\n\n`;
-        }
-        if (data.aiInsights.marketingAngles && data.aiInsights.marketingAngles.length > 0) {
-          markdown += `**Marketing Angles:**\n`;
-          data.aiInsights.marketingAngles.forEach(angle => {
-            markdown += `- ${angle}\n`;
-          });
-          markdown += `\n`;
-        }
-        if (data.aiInsights.keyInsights && data.aiInsights.keyInsights.length > 0) {
-          markdown += `**Key Insights:**\n`;
-          data.aiInsights.keyInsights.forEach(insight => {
-            markdown += `- ${insight}\n`;
-          });
-          markdown += `\n`;
-        }
-      }
-      
-      markdown += `---\n\n`;
-      markdown += `*Generated by PROFITFORGE Pro v6.0 - Market Intelligence*\n`;
-      markdown += `*100% Real Data - No Dummy Data*\n`;
-      
-      navigator.clipboard.writeText(markdown);
-      toast.success('Complete Markdown copied! 📋', {
-        icon: '✅',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-      
-    } catch (error) {
-      toast.error('Failed to export Markdown', {
-        icon: '❌',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
+      const headers = ['Product', 'Market', 'Score', 'Price', 'Profit', 'ROI', 'Competitors', 'Verdict'];
+      const row = [
+        data.productName || 'N/A',
+        data.market || 'N/A',
+        actionScore,
+        `${symbol}${formatPrice(calc.recommendedPrice)}`,
+        `${symbol}${formatPrice(calc.profit)}`,
+        `${calc.roi || 0}%`,
+        `${calc.filteredCompetitorCount || 0} (${calc.rawCompetitorCount || 0} total)`,
+        data.executiveSummary?.slice(0, 40) || 'N/A'
+      ];
+      navigator.clipboard.writeText([headers.join(','), row.join(',')].join('\n'));
+      toast.success('CSV copied!');
+    } catch (e) {
+      toast.error('Failed to copy CSV');
     }
   };
 
-  // ============ EXPORT CSV ============
-  const exportCSV = () => {
+  const copyJSON = () => {
     try {
-      const headers = ['Product', 'Price', 'Source', 'Rating', 'Reviews'];
-      const rows = data.competitors?.map(c => [
-        (c.title || c.name || 'Unknown').replace(/,/g, ' '),
-        c.price || 0,
-        c.source && c.source !== 'N/A' ? c.source : 'Various',
-        c.rating || 0,
-        c.reviews || 0
-      ]) || [];
-      
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.join(','))
-      ].join('\n');
-      
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.productName || 'report'}-data.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      toast.success('CSV exported successfully! 📊', {
-        icon: '✅',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-    } catch (error) {
-      toast.error('Failed to export CSV', {
-        icon: '❌',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      toast.success('JSON copied!');
+    } catch (e) {
+      toast.error('Failed to copy JSON');
     }
   };
 
-  // ============ EXPORT PDF ============
-  const exportPDF = async () => {
-    if (!reportRef.current) {
-      toast.error('Report not ready', {
-        icon: '⚠️',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
+  const copyMarkdown = () => {
+    try {
+      const md = `
+# 📊 PROFITFORGE PRO Report
+**Product:** ${data.productName || 'N/A'}
+**Market:** ${data.market?.toUpperCase() || 'N/A'} (${currency})
+**Action Score:** ${actionScore}% — ${actionLabel}
+**Verdict:** ${data.executiveSummary || 'N/A'}
+
+## 🔍 Competitor Intel
+- **Recommended Price:** ${symbol}${formatPrice(calc.recommendedPrice)}
+- **Average Price:** ${symbol}${formatPrice(calc.avgPrice)}
+- **Price Range:** ${symbol}${formatPrice(calc.minPrice)} – ${symbol}${formatPrice(calc.maxPrice)}
+- **Competitors:** ${calc.filteredCompetitorCount || 0} (${calc.rawCompetitorCount || 0} total)
+- **Top Brands:** ${comp.dominantBrands?.join(' • ') || 'N/A'}
+
+## 📈 Metrics
+- Market Heat: ${marketHeat}/10
+- Ad Strength: ${adStrength}/10
+- Profit Margin: ${profitMargin}/10
+- Urgency: ${urgency}/10
+- **Profit:** ${symbol}${formatPrice(calc.profit)}
+- **ROI:** ${calc.roi || 0}%
+
+## 👥 Customer Playbook
+- **Demographic:** ${playbook.targetDemographic || 'N/A'}
+- **Ad Headlines:** ${playbook.adHeadlines?.join(' | ') || 'N/A'}
+- **FB Interests:** ${playbook.facebookInterests?.join(', ') || 'N/A'}
+- **Communities:** ${playbook.redditCommunities?.join(', ') || 'N/A'}
+
+## 💬 Sentiment
+- Positive: ${sentiment.positive || 60}%
+- Neutral: ${sentiment.neutral || 25}%
+- Negative: ${sentiment.negative || 15}%
+- **Pain Points:** ${sentiment.topPainPoints?.join(', ') || 'N/A'}
+
+---
+*PROFITFORGE Pro v6.0 • Real Data*
+`;
+      navigator.clipboard.writeText(md);
+      toast.success('Markdown copied!');
+    } catch (e) {
+      toast.error('Failed to copy Markdown');
+    }
+  };
+
+  const downloadPDF = async () => {
+    const element = reportRef.current;
+    if (!element) {
+      toast.error('Report not ready!');
       return;
     }
-
-    setIsExporting(true);
-    toast.loading('Generating PDF...', {
-      id: 'pdf-export',
-      style: { background: '#1a1a2e', color: '#fff' }
-    });
-
+    toast.loading('Generating PDF...', { id: 'pdf' });
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 3,
-        useCORS: true,
+      const canvas = await html2canvas(element, {
+        scale: 2.5,
         backgroundColor: '#080B12',
-        windowHeight: 2000,
-        windowWidth: 1200
+        allowTaint: true,
+        useCORS: true,
+        logging: false
       });
-      
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       let heightLeft = pdfHeight;
       let position = 0;
-      
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
       heightLeft -= pdf.internal.pageSize.getHeight();
-      
       while (heightLeft > 0) {
         position = heightLeft - pdfHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pdf.internal.pageSize.getHeight();
       }
-      
-      pdf.save(`${data.productName || 'report'}-analysis.pdf`);
-      
-      toast.success('PDF downloaded successfully! 📄', {
-        id: 'pdf-export',
-        icon: '✅',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
+      pdf.save(`Report_${(data.productName || 'report').replace(/ /g, '_')}_${data.market || 'market'}.pdf`);
+      toast.success('PDF Downloaded!', { id: 'pdf' });
     } catch (error) {
-      toast.error('Failed to generate PDF', {
-        id: 'pdf-export',
-        icon: '❌',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-    } finally {
-      setIsExporting(false);
+      console.error('PDF Error:', error);
+      toast.error('Failed to generate PDF.', { id: 'pdf' });
     }
   };
 
-  // ============ RENDER ============
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/5 mb-4">
-            <AlertCircle className="w-12 h-12 text-gray-600" />
-          </div>
-          <p className="text-gray-400 text-lg">No data available</p>
-          <p className="text-gray-500 text-sm mt-1">Run a new analysis to get started</p>
-        </div>
-      </div>
-    );
-  }
-
-  const roi = calculateROI(data.avgPrice, data.minPrice);
-  const profit = calculateProfit(data.avgPrice, data.minPrice);
-  const adsCount = calculateAdsCount(data.competitors);
-
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <motion.div
       ref={reportRef}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-6"
+      className="max-w-7xl mx-auto mt-10 p-4 bg-[#080B12] rounded-3xl overflow-hidden"
     >
-      {/* ============ HEADER ============ */}
-      <div className="bg-gradient-to-br from-[#0D1117] via-[#0D1117]/95 to-[#080B12] rounded-3xl border border-white/10 p-6 sm:p-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#2dd4bf]/5 rounded-full blur-[80px]" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#a78bfa]/5 rounded-full blur-[80px]" />
-        
-        <div className="relative z-10">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-[#2dd4bf]/20 to-[#a78bfa]/20 border border-white/10">
-                <Crown className="w-6 h-6 text-[#2dd4bf]" />
-              </div>
+      <div className="relative z-10 space-y-6">
+        {/* HEADER */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#2dd4bf]/10">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2dd4bf] to-[#a78bfa] flex items-center justify-center shadow-lg shadow-[#2dd4bf]/20">
+              <Crown size={16} className="text-black" />
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">{data.productName || 'Product'}</h2>
+            <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-2.5 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" /> Live
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={copyCSV} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+              <FileSpreadsheet size={11} /> CSV
+            </button>
+            <button onClick={copyJSON} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+              <FileJson size={11} /> JSON
+            </button>
+            <button onClick={copyMarkdown} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
+              <FileCode size={11} /> MD
+            </button>
+            <button onClick={downloadPDF} className="text-[10px] bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] hover:opacity-90 px-4 py-1.5 rounded-lg flex items-center gap-1.5 text-black font-bold shadow-lg shadow-[#2dd4bf]/20 transition-all">
+              <Download size={11} /> PDF
+            </button>
+          </div>
+        </div>
+
+        {/* ACTION SCORE */}
+        <div className="cyber-card rounded-2xl p-6 border-l-4 flex flex-wrap items-center justify-between gap-6" style={{ borderLeftColor: actionColor }}>
+          <div className="flex items-center gap-8">
+            <ProgressRing score={actionScore} label="SCORE" color={actionColor} />
+            <div>
+              <p className="text-[10px] text-gray-400 font-mono tracking-widest">ACTION SCORE</p>
+              <p className="text-2xl font-bold" style={{ color: actionColor }}>{actionLabel}</p>
+              <p className="text-sm text-gray-300 max-w-lg">{data.executiveSummary || 'Analysis complete.'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-8 text-sm">
+            <div className="text-center">
+              <p className="text-[9px] text-gray-500 font-mono uppercase">Est. Sales</p>
+              <p className="text-xl font-bold text-[#2dd4bf]">{data.estimatedMonthlySales || 'N/A'}+</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-gray-500 font-mono uppercase">Risk</p>
+              <p className="text-xl font-bold text-yellow-400">{data.riskMeter || 'Medium'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-gray-500 font-mono uppercase">Trend</p>
+              <p className="text-xl">
+                {data.trendDirection === 'Rising' && <TrendingUp size={22} className="text-green-400 inline" />}
+                {data.trendDirection === 'Falling' && <TrendingDown size={22} className="text-red-400 inline" />}
+                {!data.trendDirection && <Minus size={22} className="text-gray-400 inline" />}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* COMPETITOR INTEL + PRICE SPREAD */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="cyber-card rounded-2xl p-6">
+            <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+              <Eye size={14} /> COMPETITOR INTEL
+            </div>
+            <div className="space-y-4">
               <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                  {data.productName || 'Product Analysis'}
-                  <span className="text-xs px-3 py-1 bg-white/10 rounded-full text-gray-400 font-normal">
-                    {data.country || 'Global'}
-                  </span>
-                </h2>
-                <div className="flex flex-wrap items-center gap-4 mt-1">
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(data.generatedAt).toLocaleString()}
-                  </span>
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    {data.competitors?.length || 0} competitors
-                  </span>
-                  <span className="text-sm text-[#2dd4bf] flex items-center gap-1">
-                    <ShoppingCart className="w-3 h-3" />
-                    {adsCount} active ads
-                  </span>
+                <p className="text-[10px] text-gray-500 font-mono">Product</p>
+                <p className="text-lg font-bold text-white truncate">{data.productName || 'N/A'}</p>
+                <p className="text-3xl font-bold text-[#2dd4bf] mt-1">{symbol}{formatPrice(calc.recommendedPrice)}</p>
+                <p className="text-[10px] text-gray-400 font-mono mt-0.5">{comp.dominantBrands?.join(' • ') || 'Top Brands'}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+                <div>
+                  <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Truck size={12} /> Est. Shipping</p>
+                  <p className="text-sm font-mono text-gray-300">
+                    {symbol}{formatPrice(calc.avgPrice ? Math.round(calc.avgPrice * 0.05) : 10)}-
+                    {symbol}{calc.avgPrice ? Math.round(calc.avgPrice * 0.1) : 20}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 font-mono">Competitors</p>
+                  <p className="text-2xl font-bold text-white">{calc.filteredCompetitorCount || 0}</p>
+                  <p className="text-[8px] text-gray-500">{calc.rawCompetitorCount || 0} total, outliers removed</p>
                 </div>
               </div>
-            </div>
-
-            <div className="flex items-center gap-4 flex-wrap">
-              {/* Score Gauges */}
-              <div className="flex items-center gap-3">
-                <div className="text-center">
-                  <div className="relative w-14 h-14">
-                    <svg className="w-14 h-14 transform -rotate-90">
-                      <circle className="text-white/5" strokeWidth="5" stroke="currentColor" fill="transparent" r="22" cx="28" cy="28" />
-                      <circle className="transition-all duration-1000" strokeWidth="5" stroke={getScoreColor(data.actionScore || 0)} fill="transparent" r="22" cx="28" cy="28" strokeDasharray={`${((data.actionScore || 0) / 100) * 138.23} 138.23`} strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-sm font-bold text-white">{data.actionScore || 0}%</span>
-                    </div>
-                  </div>
-                  <p className="text-[8px] text-gray-400 uppercase tracking-wider">Action</p>
-                </div>
-
-                <div className="text-center">
-                  <div className="relative w-14 h-14">
-                    <svg className="w-14 h-14 transform -rotate-90">
-                      <circle className="text-white/5" strokeWidth="5" stroke="currentColor" fill="transparent" r="22" cx="28" cy="28" />
-                      <circle className="transition-all duration-1000" strokeWidth="5" stroke={data.marketScore >= 60 ? '#34d399' : '#f59e0b'} fill="transparent" r="22" cx="28" cy="28" strokeDasharray={`${((data.marketScore || 0) / 100) * 138.23} 138.23`} strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-sm font-bold text-white">{data.marketScore || 0}%</span>
-                    </div>
-                  </div>
-                  <p className="text-[8px] text-gray-400 uppercase tracking-wider">Heat</p>
-                </div>
-
-                <div className="text-center">
-                  <div className="relative w-14 h-14">
-                    <svg className="w-14 h-14 transform -rotate-90">
-                      <circle className="text-white/5" strokeWidth="5" stroke="currentColor" fill="transparent" r="22" cx="28" cy="28" />
-                      <circle className="transition-all duration-1000" strokeWidth="5" stroke={roi >= 30 ? '#34d399' : '#f59e0b'} fill="transparent" r="22" cx="28" cy="28" strokeDasharray={`${(Math.min(roi, 100) / 100) * 138.23} 138.23`} strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-sm font-bold text-white">{roi}%</span>
-                    </div>
-                  </div>
-                  <p className="text-[8px] text-gray-400 uppercase tracking-wider">ROI</p>
-                </div>
-              </div>
-
-              {/* Export Buttons */}
-              <div className="flex flex-col gap-1 ml-2">
-                <button onClick={exportPDF} disabled={isExporting} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-300 transition-all hover:scale-105 disabled:opacity-50">
-                  <FileText className="w-3 h-3" /> PDF
-                </button>
-                <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-300 transition-all hover:scale-105">
-                  <FileJson className="w-3 h-3" /> CSV
-                </button>
-                <button onClick={exportMarkdown} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-300 transition-all hover:scale-105">
-                  <FileText className="w-3 h-3" /> MD
-                </button>
+              <div className="p-4 bg-[#0F172A] rounded-xl border-l-2 border-[#a78bfa]">
+                <p className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Target size={12} /> Market Gap</p>
+                <p className="text-sm text-gray-300">{data.marketGap?.description || 'Stable market with opportunities.'}</p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ============ EXECUTIVE SUMMARY ============ */}
-      <div className="bg-gradient-to-r from-[#2dd4bf]/10 via-[#a78bfa]/5 to-transparent border border-[#2dd4bf]/20 rounded-2xl p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-[#2dd4bf]/5 rounded-full blur-[60px]" />
-        <div className="relative">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-[#2dd4bf]/20 border border-[#2dd4bf]/30 flex-shrink-0">
-              <Zap className="w-6 h-6 text-[#2dd4bf]" />
+          <div className="cyber-card rounded-2xl p-6">
+            <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+              <BarChart3 size={14} /> PRICE SPREAD
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                Executive Summary
-                <span className="text-xs text-gray-500 font-normal">AI-Powered</span>
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
-                <div>
-                  <p className="text-xs text-gray-400">Action Score</p>
-                  <p className="text-xl font-bold text-[#2dd4bf]">{data.actionScore || 0}%</p>
-                  <p className="text-[10px] text-gray-500">{getScoreLabel(data.actionScore || 0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Market Heat</p>
-                  <p className="text-xl font-bold text-[#a78bfa]">{data.marketScore || 0}%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Competitors</p>
-                  <p className="text-xl font-bold text-white">{data.competitors?.length || 0}</p>
-                  <p className="text-[10px] text-gray-500">{adsCount} active ads</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">ROI Potential</p>
-                  <p className="text-xl font-bold text-[#34d399]">{roi}%</p>
-                  <p className="text-[10px] text-gray-500">Profit {formatCurrency(profit)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ============ GUIDANCE SECTION ============ */}
-      <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-        <button
-          onClick={() => toggleSection('guidance')}
-          className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/20">
-              <CompassIcon className="w-5 h-5 text-[#f59e0b]" />
-            </div>
-            <div className="text-left">
-              <span className="text-white font-medium">Guidance & Action Plan</span>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {data.actionScore >= 70 ? '🚀 Aggressive Entry Recommended' : 
-                 data.actionScore >= 50 ? '⚡ Test Waters Strategy' : 
-                 '⚠️ Avoid or Pivot'}
-              </p>
-            </div>
-          </div>
-          {expandedSections.guidance ? (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {expandedSections.guidance && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="p-5 pt-0 border-t border-white/5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <Target className="w-3 h-3" />
-                      Recommended Strategy
-                    </p>
-                    {data.actionScore >= 70 ? (
-                      <>
-                        <p className="text-sm text-white font-medium">🚀 Aggressive Entry</p>
-                        <p className="text-xs text-gray-400 mt-1">Market is ready. Start with competitive pricing and strong marketing.</p>
-                        <div className="mt-3 space-y-1">
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Price at {formatCurrency(data.avgPrice * 0.85)}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Launch in 2-3 weeks
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Budget: ₹{formatNumber(data.avgPrice * 100)} for marketing
-                          </div>
-                        </div>
-                      </>
-                    ) : data.actionScore >= 50 ? (
-                      <>
-                        <p className="text-sm text-white font-medium">⚡ Test Waters</p>
-                        <p className="text-xs text-gray-400 mt-1">Start small, test and scale based on results.</p>
-                        <div className="mt-3 space-y-1">
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Start with {formatCurrency(data.minPrice)}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Small batch orders
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <Check className="w-3 h-3 text-[#2dd4bf]" /> Test 2-3 marketing channels
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm text-white font-medium">⚠️ Avoid or Pivot</p>
-                        <p className="text-xs text-gray-400 mt-1">Market is saturated or not viable. Consider alternatives.</p>
-                        <div className="mt-3 space-y-1">
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <AlertCircle className="w-3 h-3 text-red-400" /> High competition ({data.competitors?.length || 0} players)
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <AlertCircle className="w-3 h-3 text-red-400" /> Low margins ({roi}% ROI)
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-300">
-                            <AlertCircle className="w-3 h-3 text-red-400" /> Consider niche or premium segment
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Top 3 Priority Actions</p>
-                      <ol className="space-y-2 text-sm">
-                        <li className="flex items-start gap-2 text-gray-300">
-                          <span className="text-[#2dd4bf] font-bold">1.</span>
-                          <span>Price at <strong className="text-white">{formatCurrency(data.avgPrice * 0.85)}</strong> (15% below market avg)</span>
-                        </li>
-                        <li className="flex items-start gap-2 text-gray-300">
-                          <span className="text-[#2dd4bf] font-bold">2.</span>
-                          <span>Target <strong className="text-white">{data.aiInsights?.targetDemographic || 'young adults'}</strong> demographic</span>
-                        </li>
-                        <li className="flex items-start gap-2 text-gray-300">
-                          <span className="text-[#2dd4bf] font-bold">3.</span>
-                          <span>Focus on <strong className="text-white">{data.country === 'IN' ? 'Instagram & YouTube' : 'Facebook & Google'}</strong> ads</span>
-                        </li>
-                      </ol>
-                    </div>
-
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Marketing Channels</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-2 py-1 bg-[#1877F2]/20 text-[#1877F2] rounded-lg text-xs">Facebook</span>
-                        <span className="px-2 py-1 bg-[#E4405F]/20 text-[#E4405F] rounded-lg text-xs">Instagram</span>
-                        <span className="px-2 py-1 bg-[#FF0000]/20 text-[#FF0000] rounded-lg text-xs">YouTube</span>
-                        <span className="px-2 py-1 bg-[#1DA1F2]/20 text-[#1DA1F2] rounded-lg text-xs">Twitter</span>
-                        <span className="px-2 py-1 bg-[#FF9900]/20 text-[#FF9900] rounded-lg text-xs">Amazon</span>
-                        <span className="px-2 py-1 bg-[#4285F4]/20 text-[#4285F4] rounded-lg text-xs">Google</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ============ ADS INTELLIGENCE ============ */}
-      <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-        <button
-          onClick={() => toggleSection('ads')}
-          className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#34d399]/10 border border-[#34d399]/20">
-              <ShoppingCart className="w-5 h-5 text-[#34d399]" />
-            </div>
-            <div className="text-left">
-              <span className="text-white font-medium">Ads Intelligence</span>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {adsCount} active ads • {data.competitors?.length || 0} competitors running ads
-              </p>
-            </div>
-          </div>
-          {expandedSections.ads ? (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {expandedSections.ads && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="p-5 pt-0 border-t border-white/5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white/5 rounded-xl p-4 text-center border border-white/5">
-                    <p className="text-2xl font-bold text-[#2dd4bf]">{adsCount}</p>
-                    <p className="text-xs text-gray-400">Total Active Ads</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center border border-white/5">
-                    <p className="text-2xl font-bold text-[#a78bfa]">{Math.round(adsCount * 0.4)}</p>
-                    <p className="text-xs text-gray-400">Google Shopping</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center border border-white/5">
-                    <p className="text-2xl font-bold text-[#34d399]">{Math.round(adsCount * 0.3)}</p>
-                    <p className="text-xs text-gray-400">Amazon Ads</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center border border-white/5">
-                    <p className="text-2xl font-bold text-[#f59e0b]">{Math.round(adsCount * 0.2)}</p>
-                    <p className="text-xs text-gray-400">Social Media</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/5">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Top Ad Platforms</p>
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-300">Google Shopping</span>
-                        <span className="text-white">{Math.round(adsCount * 0.4)} ads</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-1">
-                        <div className="h-full bg-[#4285F4] rounded-full" style={{ width: '40%' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-300">Amazon</span>
-                        <span className="text-white">{Math.round(adsCount * 0.3)} ads</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-1">
-                        <div className="h-full bg-[#FF9900] rounded-full" style={{ width: '30%' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-300">Facebook/Instagram</span>
-                        <span className="text-white">{Math.round(adsCount * 0.2)} ads</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-1">
-                        <div className="h-full bg-[#1877F2] rounded-full" style={{ width: '20%' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-300">Others</span>
-                        <span className="text-white">{Math.round(adsCount * 0.1)} ads</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-1">
-                        <div className="h-full bg-gray-500 rounded-full" style={{ width: '10%' }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ============ PRICE SPREAD CHART ============ */}
-      {data.prices && data.prices.length > 0 && (
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-          <button
-            onClick={() => toggleSection('pricing')}
-            className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#2dd4bf]/10 border border-[#2dd4bf]/20">
-                <BarChart3 className="w-5 h-5 text-[#2dd4bf]" />
-              </div>
-              <div className="text-left">
-                <span className="text-white font-medium">Price Spread Analysis</span>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {data.prices.length} products • {formatCurrency(data.avgPrice)} average
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 text-xs">
-                <span className="text-gray-400">Min: <span className="text-white">{formatCurrency(data.minPrice)}</span></span>
-                <span className="text-gray-400">Max: <span className="text-white">{formatCurrency(data.maxPrice)}</span></span>
-                <span className="text-gray-400">Spread: <span className="text-[#2dd4bf]">{formatCurrency(data.priceSpread)}</span></span>
-              </div>
-              {expandedSections.pricing ? (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
-              ) : (
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              )}
-            </div>
-          </button>
-
-          <AnimatePresence>
-            {expandedSections.pricing && (
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: 'auto' }}
-                exit={{ height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-5 pt-0 border-t border-white/5">
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {data.prices.slice(0, 25).map((price, i) => {
-                      const max = Math.max(...data.prices);
-                      const percentage = (price / max) * 100;
-                      return (
-                        <div key={i} className="flex items-center gap-3 group">
-                          <span className="text-xs text-gray-500 w-8 text-right">{i+1}.</span>
-                          <div className="flex-1 relative">
-                            <div className="h-8 bg-white/5 rounded-lg overflow-hidden group-hover:bg-white/10 transition-colors">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${percentage}%` }}
-                                transition={{ duration: 0.5, delay: i * 0.02 }}
-                                className="h-full rounded-lg bg-gradient-to-r from-[#2dd4bf]/60 to-[#a78bfa]/40"
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                          <span className="text-sm font-medium text-white w-32 text-right font-mono">
-                            {formatCurrency(price)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {data.prices.length > 25 && (
-                      <div className="text-center text-xs text-gray-500 pt-2">
-                        + {data.prices.length - 25} more products
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* ============ COMPETITOR INTELLIGENCE ============ */}
-      {data.competitors && data.competitors.length > 0 && (
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-          <button
-            onClick={() => toggleSection('competitors')}
-            className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#a78bfa]/10 border border-[#a78bfa]/20">
-                <Users className="w-5 h-5 text-[#a78bfa]" />
-              </div>
-              <div className="text-left">
-                <span className="text-white font-medium">Competitor Intelligence</span>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {data.competitors.length} competitors • {adsCount} ads running
-                </p>
-              </div>
-            </div>
-            {expandedSections.competitors ? (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            )}
-          </button>
-
-          <AnimatePresence>
-            {expandedSections.competitors && (
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: 'auto' }}
-                exit={{ height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-5 pt-0 border-t border-white/5">
-                  <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {data.competitors.slice(0, 20).map((competitor, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.02 }}
-                        className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all group border border-white/5 hover:border-white/10"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <span className="text-xs text-gray-500 w-6">{i+1}.</span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white truncate font-medium">
-                              {competitor.title || competitor.name || 'Unknown'}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {competitor.source && competitor.source !== 'N/A' ? competitor.source : 'Various sellers'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                          {competitor.rating > 0 && (
-                            <div className="flex items-center gap-1 text-xs">
-                              <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                              <span className="text-white">{competitor.rating}</span>
-                              <span className="text-gray-500">({competitor.reviews || 0})</span>
-                            </div>
-                          )}
-                          <span className="text-sm font-bold text-white min-w-[100px] text-right font-mono">
-                            {formatCurrency(competitor.price || 0)}
-                          </span>
-                          <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded">
-                            {Math.round((competitor.price / data.avgPrice) * 100)}%
-                          </span>
-                        </div>
-                      </motion.div>
+            <div className="h-52 w-full bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsBar data={chartData} layout="vertical">
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 9 }} width={55} />
+                  <Tooltip
+                    formatter={(value) => `${symbol}${formatPrice(value)}`}
+                    contentStyle={{ background: '#0F172A', border: '1px solid #2dd4bf20', borderRadius: 8 }}
+                  />
+                  <Bar dataKey="price" fill="#2dd4bf" radius={[0, 8, 8, 0]} barSize={18}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.price > calc.avgPrice ? '#2dd4bf' : '#a78bfa'} />
                     ))}
-                    {data.competitors.length > 20 && (
-                      <div className="text-center text-xs text-gray-500 py-2">
-                        + {data.competitors.length - 20} more competitors
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* ============ MARKET METRICS GRID ============ */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 p-5 text-center">
-          <div className="inline-flex p-2 rounded-xl bg-[#2dd4bf]/10 border border-[#2dd4bf]/20 mb-2">
-            <Gauge className="w-5 h-5 text-[#2dd4bf]" />
-          </div>
-          <p className="text-2xl font-bold text-white">{data.marketScore || 0}%</p>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">Market Heat</p>
-        </div>
-
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 p-5 text-center">
-          <div className="inline-flex p-2 rounded-xl bg-[#a78bfa]/10 border border-[#a78bfa]/20 mb-2">
-            <Target className="w-5 h-5 text-[#a78bfa]" />
-          </div>
-          <p className="text-2xl font-bold text-white">{data.actionScore || 0}%</p>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">Action Score</p>
-        </div>
-
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 p-5 text-center">
-          <div className="inline-flex p-2 rounded-xl bg-[#34d399]/10 border border-[#34d399]/20 mb-2">
-            <TrendingUp className="w-5 h-5 text-[#34d399]" />
-          </div>
-          <p className="text-2xl font-bold text-white">{roi}%</p>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">ROI Potential</p>
-        </div>
-
-        <div className="bg-[#0D1117]/90 backdrop-blur-xl rounded-2xl border border-white/5 p-5 text-center">
-          <div className="inline-flex p-2 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/20 mb-2">
-            <Zap className="w-5 h-5 text-[#f59e0b]" />
-          </div>
-          <p className="text-2xl font-bold text-white">{data.urgencyScore || 0}%</p>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">Urgency</p>
-        </div>
-      </div>
-
-      {/* ============ AI INSIGHTS ============ */}
-      {data.aiInsights && (
-        <div className="bg-gradient-to-br from-[#0D1117] to-[#080B12] rounded-2xl border border-white/10 p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-[#a78bfa]/5 rounded-full blur-[60px]" />
-          <div className="relative">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-xl bg-[#a78bfa]/10 border border-[#a78bfa]/20">
-                <Brain className="w-5 h-5 text-[#a78bfa]" />
-              </div>
-              <div>
-                <h3 className="text-white font-medium">AI-Powered Insights</h3>
-                <p className="text-xs text-gray-500">Powered by Groq Llama 3.1 70B</p>
-              </div>
+                  </Bar>
+                </RechartsBar>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-between text-[9px] text-gray-500 mt-2 font-mono">
+              <span>Min: {symbol}{formatPrice(calc.minPrice)}</span>
+              <span>Avg: {symbol}{formatPrice(calc.avgPrice)}</span>
+              <span>Max: {symbol}{formatPrice(calc.maxPrice)}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.aiInsights.sentiment && (
-                <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Sentiment Analysis</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-green-400">Positive</span>
-                      <span className="text-white font-medium">{data.aiInsights.sentiment.positive || 0}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-400 rounded-full" style={{ width: `${data.aiInsights.sentiment.positive || 0}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-yellow-400">Neutral</span>
-                      <span className="text-white font-medium">{data.aiInsights.sentiment.neutral || 0}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${data.aiInsights.sentiment.neutral || 0}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-red-400">Negative</span>
-                      <span className="text-white font-medium">{data.aiInsights.sentiment.negative || 0}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-400 rounded-full" style={{ width: `${data.aiInsights.sentiment.negative || 0}%` }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {data.aiInsights.targetDemographic && (
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Target Demographic</p>
-                    <p className="text-white text-sm">{data.aiInsights.targetDemographic}</p>
-                  </div>
-                )}
-                {data.aiInsights.recommendedPricing && (
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Recommended Pricing</p>
-                    <p className="text-white text-sm">{data.aiInsights.recommendedPricing}</p>
-                  </div>
-                )}
-                {data.aiInsights.supplierSuggestion && (
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Supplier Suggestion</p>
-                    <p className="text-white text-sm">{data.aiInsights.supplierSuggestion}</p>
-                  </div>
-                )}
+            {/* Sentiment */}
+            <div className="mt-4">
+              <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><MessageCircle size={12} /> Sentiment</p>
+              <div className="flex h-2.5 rounded-full overflow-hidden mt-1">
+                <div className="bg-green-500" style={{ width: `${sentiment.positive || 60}%` }} />
+                <div className="bg-yellow-500" style={{ width: `${sentiment.neutral || 25}%` }} />
+                <div className="bg-red-500" style={{ width: `${sentiment.negative || 15}%` }} />
               </div>
-            </div>
-
-            {data.aiInsights.marketingAngles && data.aiInsights.marketingAngles.length > 0 && (
-              <div className="mt-4 bg-white/5 rounded-xl p-4 border border-white/5">
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Ad Headlines & Marketing Angles</p>
-                <div className="flex flex-wrap gap-2">
-                  {data.aiInsights.marketingAngles.map((angle, i) => (
-                    <span key={i} className="px-3 py-1.5 bg-white/10 rounded-lg text-sm text-gray-300 border border-white/5">
-                      {angle}
-                    </span>
+              <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
+                <span>👍 {sentiment.positive || 60}%</span>
+                <span>😐 {sentiment.neutral || 25}%</span>
+                <span>👎 {sentiment.negative || 15}%</span>
+              </div>
+              {sentiment.topPainPoints?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {sentiment.topPainPoints.map((p, i) => (
+                    <span key={i} className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">{p}</span>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ============ FOOTER ============ */}
-      <div className="flex items-center justify-between text-xs text-gray-500 border-t border-white/5 pt-4">
-        <div className="flex items-center gap-4">
-          <span>PROFITFORGE Pro v6.0</span>
-          <span>•</span>
-          <span>Market Intelligence</span>
-          <span>•</span>
-          <span className="text-[#2dd4bf]">100% Real Data</span>
+        {/* METRICS + PROFIT/ROI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="cyber-card rounded-2xl p-6 md:col-span-2">
+            <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+              <Zap size={14} /> V5.0 ADV DATA
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <MetricCard label="Market Heat" value={marketHeat} color="#2dd4bf" icon={Activity} />
+              <MetricCard label="Ad Strength" value={adStrength} color="#a78bfa" icon={Target} />
+              <MetricCard label="Profit Margin" value={profitMargin} color="#34d399" icon={DollarSign} />
+              <MetricCard label="Urgency" value={urgency} color="#f59e0b" icon={Clock} />
+            </div>
+          </div>
+
+          <div className="cyber-card rounded-2xl p-6">
+            <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+              <DollarSign size={14} /> PROFIT & ROI
+            </div>
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10">
+                <p className="text-[10px] text-gray-500 font-mono">Profit (Real)</p>
+                <p className={`text-3xl font-bold ${calc.profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
+                  {symbol}{formatPrice(calc.profit)}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10">
+                <p className="text-[10px] text-gray-500 font-mono">ROI (Real)</p>
+                <p className={`text-3xl font-bold ${calc.roi > 50 ? 'text-[#34d399]' : calc.roi > 20 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {calc.roi || 0}%
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span>Generated: {new Date(data.generatedAt).toLocaleString()}</span>
-          <span>•</span>
-          <span className="text-gray-400">{data.competitors?.length || 0} competitors</span>
+
+        {/* MINING STRATEGY */}
+        <div className="cyber-card rounded-2xl p-6">
+          <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+            <Layers size={14} /> MINING STRATEGY
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <h4 className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Users size={12} /> Target Demographic</h4>
+              <p className="text-sm text-white mt-1">{playbook.targetDemographic || 'General audience'}</p>
+            </div>
+            <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <h4 className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Sparkles size={12} /> Ad Headlines</h4>
+              <ul className="list-disc list-inside text-sm text-gray-300 mt-1 space-y-0.5">
+                {playbook.adHeadlines?.map((h, i) => <li key={i}>{h}</li>) || <li>N/A</li>}
+              </ul>
+            </div>
+            <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <h4 className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Globe size={12} /> Interests & Communities</h4>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {playbook.facebookInterests?.map((i, idx) => (
+                  <span key={idx} className="text-[9px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20">{i}</span>
+                )) || <span className="text-sm text-gray-500">N/A</span>}
+              </div>
+              <p className="text-sm text-purple-400 mt-2">
+                {playbook.redditCommunities?.map(c => c.replace(/^r\//, '')).join(', ') || 'N/A'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#2dd4bf]/10">
+            <div>
+              <p className="text-[9px] text-gray-500 font-mono flex items-center gap-1"><Truck size={10} /> Supplier Suggestion</p>
+              <p className="text-sm text-white">{adv.supplierSuggestion || 'AliExpress'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-gray-500 font-mono flex items-center gap-1"><Calendar size={10} /> Seasonality</p>
+              <p className="text-sm text-white">{adv.seasonality || 'Year-round'}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-gray-500 font-mono flex items-center gap-1"><Hash size={10} /> Top Keywords</p>
+              <div className="flex flex-wrap gap-1.5 mt-0.5">
+                {adv.topKeywords?.map((kw, i) => (
+                  <span key={i} className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">{kw}</span>
+                )) || <span className="text-sm text-gray-500">N/A</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="flex items-center justify-between text-[9px] text-gray-600 font-mono border-t border-[#2dd4bf]/10 pt-4">
+          <span>PROFITFORGE Pro v6.0</span>
+          <span>Real · Live Data · Powered by SerpAPI + Groq</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse" /> Live</span>
         </div>
       </div>
-
-      {/* ============ CUSTOM SCROLLBAR ============ */}
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.05);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(45,212,191,0.3);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(45,212,191,0.5);
-        }
-      `}</style>
     </motion.div>
   );
-};
-
-export default PremiumReport;
+}

@@ -1,47 +1,20 @@
 import { Inter } from 'next/font/google';
-import { Toaster } from 'react-hot-toast';
-import Navbar from '../components/Navbar';
 import './globals.css';
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'PROFITFORGE Pro - Market Intelligence',
-  description: 'Enterprise-grade market intelligence + SEO optimization platform',
-  keywords: 'market intelligence, seo engine, e-commerce, dropshipping, affiliate marketing',
-  authors: [{ name: 'PROFITFORGE Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#080B12',
-  openGraph: {
-    title: 'PROFITFORGE Pro - Market Intelligence',
-    description: 'World-class market intelligence + SEO optimization',
-    url: 'https://profitforge.com',
-    siteName: 'PROFITFORGE Pro',
-    type: 'website',
-  },
+  title: 'PROFITFORGE Pro - Market Intelligence & SEO',
+  description: 'Real-time market analysis and SEO strategy generator',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={inter.className}>
-        <Navbar />
-        <div className="pt-16">
-          {children}
-        </div>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 5000,
-            style: {
-              background: '#0D1117',
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              padding: '16px',
-            },
-          }}
-        />
+        {children}
+        <Toaster position="top-right" toastOptions={{ style: { background: '#0F172A', color: '#E2E8F0', border: '1px solid #2dd4bf20' } }} />
       </body>
     </html>
   );

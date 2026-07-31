@@ -1,396 +1,256 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
-import {
-  Search, Sparkles, TrendingUp, BarChart3,
-  Zap, Globe, Clock, Shield, Award,
-  ChevronDown, ChevronRight, ExternalLink,
-  ArrowRight, Check, AlertCircle, Loader2,
-  Database, Brain, Target, Rocket, Crown,
-  Star, Gem, Flame, Layers, Cpu, Gauge,
-  FileText, Download, Copy, Link as LinkIcon,
-  Calendar, BookOpen, Users
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { Search, Globe, Loader2, Zap } from 'lucide-react';
 import PremiumReport from '../components/PremiumReport';
+import SEOReport from '../components/SEOReport';
 import LiveStatus from '../components/LiveStatus';
+import SearchEngineSelector from '../components/SearchEngineSelector';
+import toast from 'react-hot-toast';
 
 export default function Home() {
-  // ============ STATE ============
-  const [searchQuery, setSearchQuery] = useState('');
-  const [country, setCountry] = useState('US');
-  const [isLoading, setIsLoading] = useState(false);
-  const [reportData, setReportData] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [backendStatus, setBackendStatus] = useState('offline');
-  const [hasSearched, setHasSearched] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const resultsRef = useRef(null);
+  const [activeEngine, setActiveEngine] = useState('datahack');
+  const [product, setProduct] = useState('');
+  const [country, setCountry] = useState('us');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [currentStatus, setCurrentStatus] = useState('new');
+  const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState(null);
+  const [seoReport, setSeoReport] = useState(null);
+  const [error, setError] = useState('');
+  const [logs, setLogs] = useState([]);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://market-engine-back-production.up.railway.app';
-
-  // ============ BACKEND HEALTH ============
-  useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/health`);
-        if (response.ok) setBackendStatus('online');
-        else setBackendStatus('offline');
-      } catch (error) {
-        setBackendStatus('offline');
-      }
-    };
-    checkBackend();
-    const interval = setInterval(checkBackend, 30000);
-    return () => clearInterval(interval);
-  }, [BACKEND_URL]);
-
-  // ============ FETCH HISTORY ============
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  const fetchHistory = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/history`);
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch history:', error);
-    }
+  const addLog = (msg, type = 'info') => {
+    setLogs(prev => [...prev, { msg, type, time: new Date().toLocaleTimeString() }]);
   };
 
-  // ============ PROGRESS ============
-  useEffect(() => {
-    if (isLoading) {
-      setProgress(0);
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 95) { clearInterval(interval); return 95; }
-          return prev + Math.random() * 6 + 2;
-        });
-      }, 500);
-      return () => clearInterval(interval);
-    } else {
-      setProgress(0);
-    }
-  }, [isLoading]);
-
-  // ============ HANDLE SEARCH ============
   const handleSearch = async (e) => {
     e.preventDefault();
-    
-    if (!searchQuery.trim()) {
-      toast.error('Please enter a product name', {
-        icon: '⚠️',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-      return;
-    }
 
-    if (backendStatus === 'offline') {
-      toast.error('Backend is offline. Please try again later.', {
-        icon: '🔴',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    setHasSearched(true);
-    setReportData(null);
-    setProgress(0);
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: searchQuery, country })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.message || 'Analysis failed', {
-          icon: '❌',
-          style: { background: '#1a1a2e', color: '#fff' }
-        });
-        throw new Error(data.message || 'Analysis failed');
-      }
-
-      if (data.success && data.data) {
-        setReportData(data.data);
-        toast.success('Analysis complete! 🎯', {
-          icon: '✅',
-          style: { background: '#1a1a2e', color: '#fff' }
-        });
-        
-        setTimeout(() => {
-          resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
-        
-        fetchHistory();
-      } else {
-        toast.error(data.error || 'No data received', {
-          icon: '⚠️',
-          style: { background: '#1a1a2e', color: '#fff' }
-        });
-      }
-
-    } catch (error) {
-      console.error('Search error:', error);
-      toast.error(error.message || 'Failed to analyze', {
-        icon: '🔥',
-        style: { background: '#1a1a2e', color: '#fff' }
-      });
-    } finally {
-      setIsLoading(false);
-      setProgress(100);
+    if (activeEngine === 'datahack') {
+      if (!product.trim()) return;
+      await handleDataHackSearch();
+    } else {
+      if (!product.trim()) return;
+      await handleSEOSearch();
     }
   };
 
-  // ============ RENDER ============
+  const handleDataHackSearch = async () => {
+    setLoading(true);
+    setError('');
+    setReport(null);
+    setLogs([]);
+
+    addLog(`Initiating deep scan for "${product}"...`, 'start');
+    await new Promise(r => setTimeout(r, 400));
+    addLog(`Connecting to SerpAPI (${country.toUpperCase()} market)...`, 'info');
+    await new Promise(r => setTimeout(r, 600));
+    addLog('Scraping competitor pages & prices...', 'scrape');
+    await new Promise(r => setTimeout(r, 800));
+
+    try {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/search`, {
+        product: product.trim(),
+        country,
+      });
+
+      if (res.data.success) {
+        addLog('AI Calculating Arbitrage & Market Gaps...', 'ai');
+        await new Promise(r => setTimeout(r, 500));
+        addLog('Generating Advanced Data-Rich Report...', 'generate');
+        await new Promise(r => setTimeout(r, 400));
+        addLog('✅ Analysis Completed! Strong Data Ready.', 'success');
+        setReport(res.data.data);
+        toast.success('Analysis complete! Real data loaded.');
+      } else {
+        throw new Error(res.data.error || 'Analysis failed');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Network error.';
+      setError(msg);
+      addLog(`❌ Error: ${msg}`, 'error');
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSEOSearch = async () => {
+    setLoading(true);
+    setError('');
+    setSeoReport(null);
+    setLogs([]);
+
+    addLog(`Generating SEO strategy for "${product}"...`, 'start');
+    await new Promise(r => setTimeout(r, 400));
+    addLog(`Connecting to Groq AI (${country.toUpperCase()} market)...`, 'info');
+    await new Promise(r => setTimeout(r, 600));
+
+    try {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seo`, {
+        product: product.trim(),
+        country,
+        websiteUrl: websiteUrl || undefined,
+        currentStatus: currentStatus || 'new'
+      });
+
+      if (res.data.success) {
+        addLog('AI Generating SEO Strategy...', 'ai');
+        await new Promise(r => setTimeout(r, 500));
+        addLog('✅ SEO Strategy Generated!', 'success');
+        setSeoReport(res.data.data);
+        toast.success('SEO strategy generated!');
+      } else {
+        throw new Error(res.data.error || 'SEO analysis failed');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Network error.';
+      setError(msg);
+      addLog(`❌ Error: ${msg}`, 'error');
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-[#080B12] relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-40%] left-[-20%] w-[800px] h-[800px] bg-[#2dd4bf]/5 rounded-full blur-[150px]" />
-        <div className="absolute bottom-[-40%] right-[-20%] w-[800px] h-[800px] bg-[#a78bfa]/5 rounded-full blur-[150px]" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyY2NkYmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+    <main className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6 border-b border-[#2dd4bf]/10 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#2dd4bf]/10 flex items-center justify-center border border-[#2dd4bf]/30">
+            <Zap size={18} className="text-[#2dd4bf]" />
+          </div>
+          <h1 className="text-2xl font-bold cyber-glow-text tracking-tight">PROFITFORGE</h1>
+          <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded border border-[#2dd4bf]/20">Pro</span>
+        </div>
+        <LiveStatus />
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 sm:py-8 lg:py-12">
-        
-        {/* ============ HEADER ============ */}
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
-        >
-          <div className="inline-flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-2xl bg-gradient-to-br from-[#2dd4bf]/20 to-[#a78bfa]/20 border border-white/10">
-              <Crown className="w-8 h-8 text-[#2dd4bf]" />
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-bold">
-              <span className="bg-gradient-to-r from-[#2dd4bf] via-white to-[#a78bfa] bg-clip-text text-transparent">
-                PROFITFORGE
-              </span>
-              <span className="text-white/40 text-2xl ml-2 font-light">Pro</span>
-            </h1>
+      {/* Engine Selector */}
+      <div className="mb-8">
+        <SearchEngineSelector activeEngine={activeEngine} onEngineChange={setActiveEngine} />
+        <p className="text-center text-xs text-gray-500 mt-2 font-mono">
+          {activeEngine === 'datahack' ? 'Real-time market analysis & arbitrage' : '60-90 day actionable SEO strategy'}
+        </p>
+      </div>
+
+      {/* Hero */}
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold tracking-tight">
+          <span className="cyber-glow-text">{activeEngine === 'datahack' ? 'Real-Time Arbitrage Engine' : 'SEO Engine Ultra'}</span>
+        </h2>
+        <p className="text-gray-400 mt-1 font-mono text-sm">
+          {activeEngine === 'datahack' 
+            ? 'Advanced Data Model — IN, PK, AE, UK, US Markets' 
+            : '60-90 Day Actionable SEO Strategy'}
+        </p>
+      </div>
+
+      {/* Search */}
+      <div className="max-w-3xl mx-auto cyber-card rounded-2xl p-6 border border-[#2dd4bf]/10">
+        <form onSubmit={handleSearch} className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              placeholder={activeEngine === 'datahack' ? 'e.g., Best Laptops for students' : 'e.g., How to start a new business'}
+              className="flex-1 bg-[#0F172A] border border-[#2dd4bf]/10 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/50 font-mono text-sm"
+              disabled={loading}
+            />
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="md:w-44 bg-[#0F172A] border border-[#2dd4bf]/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/50 font-mono text-sm"
+              disabled={loading}
+            >
+              <option value="us">🇺🇸 USA (USD)</option>
+              <option value="uk">🇬🇧 UK (GBP)</option>
+              <option value="ae">🇦🇪 UAE (AED)</option>
+              <option value="in">🇮🇳 India (INR)</option>
+              <option value="pk">🇵🇰 Pakistan (PKR)</option>
+            </select>
           </div>
-          
-          <p className="text-gray-400 text-sm tracking-wider font-light flex items-center justify-center gap-3">
-            <span className="w-8 h-px bg-gradient-to-r from-transparent to-[#2dd4bf]/50" />
-            Market Intelligence
-            <span className="w-8 h-px bg-gradient-to-l from-transparent to-[#2dd4bf]/50" />
-          </p>
-          
-          <div className="flex items-center justify-center gap-6 mt-4">
-            <LiveStatus status={backendStatus} />
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Clock className="w-3 h-3" />
-              <span>Real-time Analysis</span>
+
+          {activeEngine === 'seo' && (
+            <div className="flex flex-col md:flex-row gap-4">
+              <input
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="Website URL (optional)"
+                className="flex-1 bg-[#0F172A] border border-[#2dd4bf]/10 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/50 font-mono text-sm"
+                disabled={loading}
+              />
+              <select
+                value={currentStatus}
+                onChange={(e) => setCurrentStatus(e.target.value)}
+                className="md:w-44 bg-[#0F172A] border border-[#2dd4bf]/10 rounded-xl px-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/50 font-mono text-sm"
+                disabled={loading}
+              >
+                <option value="new">New Site</option>
+                <option value="existing">Existing (Needs SEO)</option>
+                <option value="established">Established (Top 50)</option>
+              </select>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Shield className="w-3 h-3" />
-              <span>v6.0</span>
-            </div>
-          </div>
-        </motion.div>
+          )}
 
-        {/* ============ SEARCH FORM ============ */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <div className={`bg-[#0D1117]/90 backdrop-blur-2xl rounded-3xl border transition-all duration-500 ${
-            isFocused ? 'border-[#2dd4bf]/50 shadow-[0_0_60px_-12px_rgba(45,212,191,0.15)]' : 'border-white/5 shadow-xl'
-          } p-6 sm:p-8`}>
-            
-            <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2 relative">
-                    <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                      <Search className="w-3 h-3" />
-                      Product Name
-                    </label>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onFocus={() => setIsFocused(true)}
-                      onBlur={() => setIsFocused(false)}
-                      placeholder="e.g., wireless earbuds, gaming laptop..."
-                      className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#2dd4bf]/50 transition-all duration-300"
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                      <Globe className="w-3 h-3" />
-                      Target Market
-                    </label>
-                    <select
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#2dd4bf]/50 transition-all duration-300 appearance-none cursor-pointer"
-                      disabled={isLoading}
-                    >
-                      <option value="US">🇺🇸 United States ($)</option>
-                      <option value="UK">🇬🇧 United Kingdom (£)</option>
-                      <option value="AE">🇦🇪 UAE (AED)</option>
-                      <option value="IN">🇮🇳 India (₹)</option>
-                      <option value="PK">🇵🇰 Pakistan (Rs.)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isLoading || backendStatus === 'offline'}
-                    className="relative w-full group overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] rounded-xl opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] rounded-xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity duration-300" />
-                    
-                    <div className="relative flex items-center justify-center gap-3 px-6 py-4 text-white font-semibold text-sm sm:text-base">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Analyzing Market Data...</span>
-                          <span className="text-white/60 text-xs">{Math.round(progress)}%</span>
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="w-5 h-5" />
-                          <span>Analyze Product</span>
-                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            <AnimatePresence>
-              {isLoading && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="mt-4"
-                >
-                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] rounded-full"
-                      style={{ width: `${progress}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Analyzing Market Data</span>
-                    <span>{Math.round(progress)}%</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
-        {/* ============ RESULTS ============ */}
-        <div ref={resultsRef} className="mt-8">
-          <AnimatePresence mode="wait">
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center py-20"
-              >
-                <div className="text-center">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full border-4 border-white/10 border-t-[#2dd4bf] animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Database className="w-6 h-6 text-[#2dd4bf] animate-pulse" />
-                    </div>
-                  </div>
-                  <p className="text-gray-400 mt-6 text-lg font-medium">Mining Market Intelligence...</p>
-                  <p className="text-gray-500 text-sm mt-2">Analyzing real-time data from 40+ sources</p>
-                </div>
-              </motion.div>
-            )}
-
-            {!isLoading && hasSearched && reportData && (
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <PremiumReport data={reportData} />
-              </motion.div>
-            )}
-
-            {!isLoading && hasSearched && !reportData && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20"
-              >
-                <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/5 mb-4">
-                  <AlertCircle className="w-12 h-12 text-gray-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">No Results to Display</h3>
-                <p className="text-gray-400 text-sm">Try searching for a different product</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ============ HISTORY ============ */}
-        {history.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-10 bg-[#0D1117]/80 backdrop-blur-2xl rounded-2xl border border-white/5 p-6"
+          <button
+            type="submit"
+            disabled={loading || !product}
+            className="bg-gradient-to-r from-[#2dd4bf] to-[#a78bfa] hover:from-[#14b8a6] hover:to-[#8b5cf6] text-black font-bold px-8 py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 min-w-[160px] transition font-mono mx-auto"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-400 flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Recent Searches
-              </h3>
-              <span className="text-xs text-gray-500">{history.length} items</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {history.slice(0, 8).map((item, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    if (item.productName) setSearchQuery(item.productName);
-                  }}
-                  className="group px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-gray-300 transition-all duration-300 border border-white/5 hover:border-[#2dd4bf]/20 flex items-center gap-2"
-                >
-                  <span>{item.productName || 'Unknown'}</span>
-                  <span className="text-gray-500 text-[10px]">{item.country || 'Global'}</span>
-                  <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-[#2dd4bf]" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
+            {loading ? <Loader2 className="animate-spin" size={20} /> : <><Zap size={18} /> {activeEngine === 'datahack' ? 'HACK DATA' : 'GENERATE SEO'}</>}
+          </button>
+        </form>
+
+        {/* Logs */}
+        {logs.length > 0 && (
+          <div className="mt-6 bg-[#0F172A] rounded-xl p-4 border border-[#2dd4bf]/5 font-mono text-xs space-y-1 max-h-40 overflow-y-auto">
+            {logs.map((log, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-gray-600 min-w-[70px]">[{log.time}]</span>
+                <span className={`${
+                  log.type === 'error' ? 'text-red-400' :
+                  log.type === 'success' ? 'text-[#34d399]' :
+                  log.type === 'start' ? 'text-[#2dd4bf]' :
+                  log.type === 'scrape' ? 'text-yellow-400' :
+                  log.type === 'ai' ? 'text-[#a78bfa]' :
+                  'text-gray-400'
+                }`}>
+                  {log.msg}
+                </span>
+                {log.type === 'info' && <span className="typing-dot ml-1">...</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm font-mono">
+            ⚠️ {error}
+          </div>
         )}
       </div>
+
+      {/* Report Area */}
+      {activeEngine === 'datahack' && report && <PremiumReport data={report} />}
+      {activeEngine === 'seo' && seoReport && <SEOReport data={seoReport} />}
+
+      {/* Empty State */}
+      {activeEngine === 'seo' && !seoReport && !loading && !error && (
+        <div className="max-w-3xl mx-auto mt-12 text-center">
+          <div className="cyber-card rounded-2xl p-12 border border-[#2dd4bf]/10">
+            <Search size={48} className="text-[#2dd4bf]/30 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-400">No SEO Strategy Generated</h3>
+            <p className="text-sm text-gray-500 mt-2">Enter a product or service to generate a 60-90 day SEO strategy</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

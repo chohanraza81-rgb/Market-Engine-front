@@ -11,10 +11,8 @@ import {
   Database, Brain, Target, Rocket, Crown,
   Star, Gem, Flame, Layers, Cpu, Gauge,
   FileText, Download, Copy, Link as LinkIcon,
-  Calendar, BookOpen, Users, TrendingUp as TrendUp,
-  Percent, Hash, FileJson, Share2, Eye
+  Calendar, BookOpen, Users
 } from 'lucide-react';
-import SearchEngineSelector from '../components/SearchEngineSelector';
 import PremiumReport from '../components/PremiumReport';
 import LiveStatus from '../components/LiveStatus';
 

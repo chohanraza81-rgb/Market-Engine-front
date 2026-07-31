@@ -20,12 +20,11 @@ import {
   Globe,
   Layers,
   BarChart3,
-  FileJson,
-  FileSpreadsheet,
   FileCode,
   Download,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Award
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -42,6 +41,7 @@ const ProgressRing = ({ score, label, color, size = 80 }) => {
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
         <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="6" fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="6" fill="none" strokeDasharray="4 4" />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -54,7 +54,7 @@ const ProgressRing = ({ score, label, color, size = 80 }) => {
           strokeLinecap="round"
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 1.5, ease: 'easeOut' }}
-          style={{ filter: `drop-shadow(0 0 12px ${color}40)` }}
+          style={{ filter: `drop-shadow(0 0 20px ${color}40)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -62,39 +62,6 @@ const ProgressRing = ({ score, label, color, size = 80 }) => {
         <span className="text-[8px] text-gray-500 uppercase tracking-widest">{label}</span>
       </div>
     </div>
-  );
-};
-
-// ============================================================
-// METRIC CARD
-// ============================================================
-const MetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon }) => {
-  const safeValue = Math.min(max, Math.max(0, value || 0));
-  const percentage = Math.min(100, (safeValue / max) * 100);
-
-  return (
-    <motion.div
-      whileHover={{ y: -3, scale: 1.02 }}
-      className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg hover:shadow-[#2dd4bf]/15 transition-all"
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{label}</p>
-        {Icon && <Icon size={14} className="text-[#2dd4bf]/60" />}
-      </div>
-      <div className="flex items-end gap-2 mt-1">
-        <span className="text-2xl font-bold" style={{ color }}>{safeValue}</span>
-        <span className="text-sm text-gray-600 font-mono">/{max}</span>
-      </div>
-      <div className="w-full h-1.5 bg-[#1E293B] rounded-full mt-2 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ backgroundColor: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-        />
-      </div>
-    </motion.div>
   );
 };
 
@@ -115,9 +82,10 @@ export default function SEOReport({ data }) {
   const adsenseRoadmap = seoData.adsenseRoadmap || {};
   const competitorGap = seoData.competitorGapAnalysis || {};
 
-  const seoScore = seoData.seoScore || 65;
+  // ✅ FIX: Extract product name and market from data
   const productName = seoData.productName || data.productName || 'Product';
   const market = seoData.market || data.market || 'N/A';
+  const seoScore = seoData.seoScore || 65;
   const timeline = seoData.estimatedTimeline || '60-90 days';
   const summary = seoData.executiveSummary || 'Actionable SEO strategy generated.';
 
@@ -234,6 +202,9 @@ ${summary}
             <span className="text-[10px] font-mono bg-[#2dd4bf]/10 text-[#2dd4bf] px-2.5 py-1 rounded-full border border-[#2dd4bf]/20 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" /> SEO
             </span>
+            <span className="text-[10px] font-mono bg-[#a78bfa]/10 text-[#a78bfa] px-2.5 py-1 rounded-full border border-[#a78bfa]/20">
+              {market}
+            </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <button onClick={copyMarkdown} className="text-[10px] bg-[#0F172A] hover:bg-[#1E293B] px-3 py-1.5 rounded-lg border border-[#2dd4bf]/15 flex items-center gap-1.5 text-gray-300 font-mono transition-all">
@@ -333,7 +304,7 @@ ${summary}
           </div>
           <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[#2dd4bf]/10">
             <div>
-              <p className="text-[9px] text-gray-500 font-mono">Word Count Recommendation</p>
+              <p className="text-[9px] text-gray-500 font-mono">Word Count</p>
               <p className="text-sm text-white font-medium">{contentStrategy.wordCountRecommendations || 'N/A'}</p>
             </div>
             <div>
@@ -460,6 +431,30 @@ ${summary}
                   {competitorGap.opportunities?.map((o, i) => <li key={i}>{o}</li>) || <li>N/A</li>}
                 </ul>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FINAL RECOMMENDATION */}
+        <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
+          <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+            <Award size={14} /> FINAL RECOMMENDATION
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] text-gray-500 font-mono">Status</p>
+              <p className={`text-2xl font-bold ${seoScore >= 70 ? 'text-green-400' : seoScore >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                {seoScore >= 70 ? 'Strong SEO' : seoScore >= 50 ? 'Needs Work' : 'Needs Help'}
+              </p>
+              <p className="text-sm text-gray-300 mt-1">{summary}</p>
+            </div>
+            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono">Top 3 Priorities</p>
+              <ul className="list-decimal list-inside text-sm text-gray-300 mt-1 space-y-1">
+                <li>Optimize for mobile devices</li>
+                <li>Create high-quality content</li>
+                <li>Build strong backlink profile</li>
+              </ul>
             </div>
           </div>
         </div>

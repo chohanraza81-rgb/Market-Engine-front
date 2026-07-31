@@ -32,10 +32,7 @@ import {
   Crown,
   Globe,
   Layers,
-  Gauge,
   Award,
-  AlertCircle,
-  TrendingUp as TrendingUpIcon,
   Info
 } from 'lucide-react';
 import {
@@ -77,7 +74,7 @@ const getSymbol = (currency) => {
 };
 
 // ============================================================
-// PROGRESS RING
+// PROGRESS RING (Action Score)
 // ============================================================
 const ProgressRing = ({ score, label, color, size = 100 }) => {
   const safeScore = Math.min(100, Math.max(0, score || 0));
@@ -114,26 +111,38 @@ const ProgressRing = ({ score, label, color, size = 100 }) => {
 };
 
 // ============================================================
-// RADAR CHART
+// METRIC CARD (Enhanced with Progress Bar)
 // ============================================================
-const RadarChartComponent = ({ data }) => {
-  const chartData = [
-    { subject: 'Market Heat', value: data.marketHeat || 6, fullMark: 10 },
-    { subject: 'Ad Strength', value: data.adStrength || 6, fullMark: 10 },
-    { subject: 'Profit Margin', value: data.profitMargin || 5, fullMark: 10 },
-    { subject: 'Urgency', value: data.urgency || 8, fullMark: 10 },
-    { subject: 'Competition', value: data.competition || 5, fullMark: 10 }
-  ];
+const MetricCard = ({ label, value, max = 10, color = '#2dd4bf', icon: Icon, description }) => {
+  const safeValue = Math.min(max, Math.max(0, value || 0));
+  const percentage = Math.min(100, (safeValue / max) * 100);
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <RadarChart data={chartData}>
-        <PolarGrid stroke="#1e293b" />
-        <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
-        <PolarRadiusAxis domain={[0, 10]} tick={{ fill: 'transparent' }} />
-        <Radar name="Market Health" dataKey="value" stroke="#2dd4bf" fill="#2dd4bf" fillOpacity={0.3} />
-      </RadarChart>
-    </ResponsiveContainer>
+    <motion.div
+      whileHover={{ y: -3, scale: 1.02 }}
+      className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg hover:shadow-[#2dd4bf]/20 transition-all"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{label}</p>
+          <div className="flex items-end gap-2 mt-1">
+            <span className="text-2xl font-bold" style={{ color }}>{safeValue}</span>
+            <span className="text-sm text-gray-600 font-mono">/{max}</span>
+          </div>
+          {description && <p className="text-[9px] text-gray-500 mt-0.5">{description}</p>}
+        </div>
+        {Icon && <Icon size={20} className="text-[#2dd4bf]/60" />}
+      </div>
+      <div className="w-full h-2 bg-[#1E293B] rounded-full mt-3 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+        />
+      </div>
+    </motion.div>
   );
 };
 
@@ -148,14 +157,14 @@ const SentimentPie = ({ data }) => {
   ];
 
   return (
-    <ResponsiveContainer width="100%" height={80}>
+    <ResponsiveContainer width="100%" height={100}>
       <PieChart>
         <Pie
           data={chartData}
           cx="50%"
           cy="50%"
-          innerRadius={20}
-          outerRadius={35}
+          innerRadius={25}
+          outerRadius={40}
           paddingAngle={3}
           dataKey="value"
         >
@@ -192,6 +201,7 @@ export default function PremiumReport({ data }) {
   const actionScore = data.actionScore || 50;
   const actionLabel = data.actionLabel || 'Test Waters';
 
+  // Derived metrics
   const marketHeat = Math.min(10, Math.round((actionScore / 100) * 10));
   const adStrength = Math.min(10, Math.round(((sentiment.positive || 60) / 100) * 10));
   const profitMargin = Math.min(
@@ -206,10 +216,38 @@ export default function PremiumReport({ data }) {
 
   const actionColor = actionScore >= 70 ? '#34d399' : actionScore >= 50 ? '#f59e0b' : '#ef4444';
 
+  // Price Spread Chart Data
   const chartData = comp.dominantBrands?.slice(0, 6).map((brand, i) => ({
     name: brand.length > 12 ? brand.slice(0, 10) + '..' : brand,
     price: Math.round((calc.avgPrice || 50) * (0.75 + i * 0.08))
   })) || [{ name: 'Avg Price', price: calc.avgPrice || 50 }];
+
+  // Prepare competitor list for display
+  const competitorList = comp.dominantBrands?.slice(0, 10) || [];
+
+  // Generate final recommendations based on data
+  const getRecommendations = () => {
+    const recs = [];
+    if (actionScore < 70) {
+      recs.push('Increase marketing efforts to boost brand visibility');
+    }
+    if (calc.filteredCompetitorCount > 15) {
+      recs.push('Differentiate with unique features or pricing strategy');
+    }
+    if (sentiment.negative > 30) {
+      recs.push(`Address pain points: ${sentiment.topPainPoints?.join(', ') || 'quality issues'}`);
+    }
+    if (data.marketGap?.description) {
+      recs.push(`Leverage market gap: ${data.marketGap.description}`);
+    }
+    if (recs.length === 0) {
+      recs.push('Maintain current strategy and monitor competitor activity');
+      recs.push('Continue optimizing your product offering');
+    }
+    return recs.slice(0, 4);
+  };
+
+  const recommendations = getRecommendations();
 
   // ============================================================
   // COPY FUNCTIONS
@@ -389,6 +427,7 @@ export default function PremiumReport({ data }) {
 
         {/* COMPETITOR INTEL + PRICE SPREAD */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* LEFT: Competitor Intel */}
           <div className="cyber-card rounded-2xl p-6">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
               <Eye size={14} /> COMPETITOR INTEL
@@ -421,6 +460,7 @@ export default function PremiumReport({ data }) {
             </div>
           </div>
 
+          {/* RIGHT: Price Spread + Sentiment */}
           <div className="cyber-card rounded-2xl p-6">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
               <BarChart3 size={14} /> PRICE SPREAD
@@ -448,72 +488,68 @@ export default function PremiumReport({ data }) {
               <span>Max: {symbol}{formatPrice(calc.maxPrice)}</span>
             </div>
 
-            <div className="mt-4">
-              <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><MessageCircle size={12} /> Sentiment</p>
-              <div className="flex h-2.5 rounded-full overflow-hidden mt-1">
-                <div className="bg-green-500" style={{ width: `${sentiment.positive || 60}%` }} />
-                <div className="bg-yellow-500" style={{ width: `${sentiment.neutral || 25}%` }} />
-                <div className="bg-red-500" style={{ width: `${sentiment.negative || 15}%` }} />
-              </div>
-              <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
-                <span>👍 {sentiment.positive || 60}%</span>
-                <span>😐 {sentiment.neutral || 25}%</span>
-                <span>👎 {sentiment.negative || 15}%</span>
-              </div>
-              {sentiment.topPainPoints?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {sentiment.topPainPoints.map((p, i) => (
-                    <span key={i} className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">{p}</span>
-                  ))}
+            {/* Sentiment */}
+            <div className="mt-4 flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><MessageCircle size={12} /> Sentiment</p>
+                <div className="flex h-2.5 rounded-full overflow-hidden mt-1">
+                  <div className="bg-green-500" style={{ width: `${sentiment.positive || 60}%` }} />
+                  <div className="bg-yellow-500" style={{ width: `${sentiment.neutral || 25}%` }} />
+                  <div className="bg-red-500" style={{ width: `${sentiment.negative || 15}%` }} />
                 </div>
-              )}
+                <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
+                  <span>👍 {sentiment.positive || 60}%</span>
+                  <span>😐 {sentiment.neutral || 25}%</span>
+                  <span>👎 {sentiment.negative || 15}%</span>
+                </div>
+                {sentiment.topPainPoints?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {sentiment.topPainPoints.map((p, i) => (
+                      <span key={i} className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">{p}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="w-24 h-24 flex-shrink-0">
+                <SentimentPie data={sentiment} />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* METRICS + RADAR + PROFIT/ROI */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <div className="cyber-card rounded-2xl p-6 md:col-span-3">
+        {/* TOP COMPETITORS LIST (NEW) */}
+        {competitorList.length > 0 && (
+          <div className="cyber-card rounded-2xl p-6">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
-              <Zap size={14} /> V5.0 ADV DATA
+              <Users size={14} /> TOP COMPETITORS
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg">
-                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Market Heat</p>
-                <div className="flex items-end gap-2 mt-1">
-                  <span className="text-2xl font-bold text-[#2dd4bf]">{marketHeat}</span>
-                  <span className="text-sm text-gray-600 font-mono">/10</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {competitorList.map((brand, idx) => (
+                <div key={idx} className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center">
+                  <p className="text-sm font-bold text-white">{brand}</p>
+                  <p className="text-[10px] text-gray-500 font-mono">Competitor #{idx+1}</p>
                 </div>
-                <p className="text-[8px] text-gray-500 mt-0.5">Demand vs Supply</p>
-              </div>
-              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg">
-                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Ad Strength</p>
-                <div className="flex items-end gap-2 mt-1">
-                  <span className="text-2xl font-bold text-[#a78bfa]">{adStrength}</span>
-                  <span className="text-sm text-gray-600 font-mono">/10</span>
-                </div>
-                <p className="text-[8px] text-gray-500 mt-0.5">Competitor Ads</p>
-              </div>
-              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg">
-                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Profit Margin</p>
-                <div className="flex items-end gap-2 mt-1">
-                  <span className="text-2xl font-bold text-[#34d399]">{profitMargin}</span>
-                  <span className="text-sm text-gray-600 font-mono">/10</span>
-                </div>
-                <p className="text-[8px] text-gray-500 mt-0.5">Potential Profit</p>
-              </div>
-              <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/10 shadow-lg">
-                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Urgency</p>
-                <div className="flex items-end gap-2 mt-1">
-                  <span className="text-2xl font-bold text-[#f59e0b]">{urgency}</span>
-                  <span className="text-sm text-gray-600 font-mono">/10</span>
-                </div>
-                <p className="text-[8px] text-gray-500 mt-0.5">Seasonality</p>
-              </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="cyber-card rounded-2xl p-6 md:col-span-2">
+        {/* V5.0 ADV DATA — Enhanced with better visuals */}
+        <div className="cyber-card rounded-2xl p-6">
+          <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+            <Zap size={14} /> V5.0 ADV DATA
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricCard label="Market Heat" value={marketHeat} color="#2dd4bf" icon={Activity} description="Demand vs Supply" />
+            <MetricCard label="Ad Strength" value={adStrength} color="#a78bfa" icon={Target} description="Competitor Ads" />
+            <MetricCard label="Profit Margin" value={profitMargin} color="#34d399" icon={DollarSign} description="Potential Profit" />
+            <MetricCard label="Urgency" value={urgency} color="#f59e0b" icon={Clock} description="Seasonality" />
+          </div>
+        </div>
+
+        {/* PROFIT & ROI */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="cyber-card rounded-2xl p-6">
             <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
               <DollarSign size={14} /> PROFIT & ROI
             </div>
@@ -532,6 +568,28 @@ export default function PremiumReport({ data }) {
               </div>
             </div>
           </div>
+
+          {/* FINAL RECOMMENDATION (New) */}
+          <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
+            <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
+              <Award size={14} /> FINAL RECOMMENDATION
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-300 font-medium">Based on the analysis, here are your top priorities:</p>
+              <ul className="space-y-2">
+                {recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex items-start gap-2 bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
+                    <span className="text-[#2dd4bf] font-bold text-sm">{idx+1}.</span>
+                    <span className="text-sm text-gray-200">{rec}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 p-3 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
+                <p className="text-[10px] text-gray-500 font-mono">Action Score Verdict</p>
+                <p className="text-sm text-white font-medium">{actionLabel}: {data.executiveSummary || 'Proceed with caution.'}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* MINING STRATEGY */}
@@ -539,7 +597,6 @@ export default function PremiumReport({ data }) {
           <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
             <Layers size={14} /> MINING STRATEGY
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] p-4 rounded-xl border border-[#2dd4bf]/5">
               <h4 className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Users size={12} /> Target Demographic</h4>
@@ -563,7 +620,6 @@ export default function PremiumReport({ data }) {
               </p>
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#2dd4bf]/10">
             <div>
               <p className="text-[9px] text-gray-500 font-mono flex items-center gap-1"><Truck size={10} /> Supplier Suggestion</p>
@@ -580,30 +636,6 @@ export default function PremiumReport({ data }) {
                   <span key={i} className="text-[9px] bg-[#0F172A] text-gray-300 px-2 py-0.5 rounded-full border border-white/5">{kw}</span>
                 )) || <span className="text-sm text-gray-500">N/A</span>}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* FINAL RECOMMENDATION */}
-        <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
-          <div className="flex items-center gap-2 text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-4 border-b border-[#2dd4bf]/10 pb-2">
-            <Award size={14} /> FINAL RECOMMENDATION
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] text-gray-500 font-mono">Decision</p>
-              <p className={`text-2xl font-bold ${actionScore >= 70 ? 'text-green-400' : actionScore >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                {actionLabel}
-              </p>
-              <p className="text-sm text-gray-300 mt-1">{data.executiveSummary || 'Analysis complete.'}</p>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-500 font-mono">3 Top Priorities</p>
-              <ul className="list-decimal list-inside text-sm text-gray-300 mt-1 space-y-1">
-                <li>Enter market with {symbol}{formatPrice(calc.recommendedPrice)} price point</li>
-                <li>Target {playbook.targetDemographic || 'general'} audience</li>
-                <li>Focus on {data.marketGap?.description || 'market gaps'}</li>
-              </ul>
             </div>
           </div>
         </div>

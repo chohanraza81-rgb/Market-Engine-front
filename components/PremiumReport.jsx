@@ -67,39 +67,52 @@ const formatPrice = (num) => {
   return Number(num).toLocaleString('en-US');
 };
 
-const getSymbol = (currency) => {
+// ============================================================
+// RULE 2: COUNTRY + CURRENCY LOCK
+// ============================================================
+const getCurrencySymbol = (country) => {
   const map = {
-    USD: '$',
-    GBP: '£',
-    AED: 'د.إ',
-    INR: '₹',
-    PKR: 'Rs.'
+    in: '₹',
+    pk: 'Rs.',
+    us: '$',
+    ae: 'د.إ',
+    uk: '£'
   };
-  return map[currency] || '$';
+  return map[country?.toLowerCase()] || '$';
 };
 
-// ============================================================
-// RULE 2: COUNTRY LOCK — Get real brands for each country
-// ============================================================
-const getRealBrands = (country, category = 'general') => {
+const getLocalBrands = (country, category = 'general') => {
   const brands = {
-    in: { general: ['Tata', 'Maruti', 'Hyundai', 'Amazon.in', 'Flipkart'], shoes: ['Campus', 'Bata', 'Nike', 'Adidas', 'Puma'], car: ['Tata', 'Maruti', 'Hyundai', 'Toyota', 'Honda'], tech: ['Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Realme'] },
-    pk: { general: ['Daraz.pk', 'PriceOye.pk', 'Telemart.pk', 'Mega.pk', 'Symbios.pk'], shoes: ['Service', 'Bata', 'Nike', 'Adidas', 'Campus'], tech: ['Samsung', 'Apple', 'Oppo', 'Vivo', 'Tecno'] },
-    us: { general: ['Amazon.com', 'Walmart', 'Best Buy', 'Target', 'Costco'], shoes: ['Nike', 'Adidas', 'New Balance', 'Skechers', 'Converse'], tech: ['Apple', 'Samsung', 'Dell', 'HP', 'Lenovo'] },
-    ae: { general: ['Noon.com', 'Amazon.ae', 'Carrefour UAE', 'Sharaf DG', 'LuLu Hypermarket'], tech: ['Apple', 'Samsung', 'Huawei', 'Xiaomi', 'Google'] },
-    uk: { general: ['Amazon.co.uk', 'Argos', 'John Lewis', 'Currys', 'ASOS'], tech: ['Apple', 'Samsung', 'Dell', 'HP', 'Google'] }
+    in: {
+      general: ['Amazon.in', 'Flipkart', 'Tata', 'Reliance Digital', 'Croma'],
+      bike: ['Hero', 'Bajaj', 'TVS', 'Royal Enfield', 'Honda'],
+      laptop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus'],
+      shoes: ['Campus', 'Bata', 'Nike', 'Adidas', 'Puma'],
+      car: ['Tata', 'Maruti', 'Hyundai', 'Toyota', 'Honda']
+    },
+    pk: {
+      general: ['Daraz.pk', 'PriceOye.pk', 'Telemart.pk', 'Mega.pk', 'Symbios.pk'],
+      bike: ['Unique', 'Sohrab', 'Yamaha', 'Honda', 'Suzuki'],
+      laptop: ['Dell', 'HP', 'Lenovo', 'Apple', 'Asus'],
+      shoes: ['Service', 'Bata', 'Nike', 'Adidas', 'Campus'],
+      car: ['Suzuki', 'Toyota', 'Honda', 'Kia', 'Hyundai']
+    },
+    us: {
+      general: ['Amazon.com', 'Walmart', 'Best Buy', 'Target', 'Costco'],
+      bike: ['Trek', 'Giant', 'Specialized', 'Cannondale', 'Schwinn'],
+      laptop: ['Apple', 'Dell', 'HP', 'Lenovo', 'Microsoft'],
+      shoes: ['Nike', 'Adidas', 'New Balance', 'Skechers', 'Converse'],
+      car: ['Ford', 'Chevrolet', 'Toyota', 'Honda', 'Tesla']
+    },
+    ae: {
+      general: ['Noon.com', 'Amazon.ae', 'Carrefour UAE', 'Sharaf DG', 'LuLu Hypermarket'],
+      bike: ['Trek', 'Giant', 'Specialized', 'Cannondale'],
+      laptop: ['Apple', 'Dell', 'HP', 'Lenovo', 'Asus'],
+      shoes: ['Nike', 'Adidas', 'Puma', 'Skechers', 'New Balance'],
+      car: ['Toyota', 'Honda', 'Nissan', 'Mercedes', 'BMW']
+    }
   };
-  return brands[country]?.[category] || brands[country]?.general || brands.us.general;
-};
-
-// ============================================================
-// RULE 3: REALISTIC ROI
-// ============================================================
-const getRealisticROI = (category) => {
-  if (category === 'car' || category === 'realestate') return `${Math.floor(Math.random() * 10) + 5}%`;
-  if (category === 'digital' || category === 'course') return `${Math.floor(Math.random() * 300) + 500}%`;
-  if (category === 'physical' || category === 'gadget') return `${Math.floor(Math.random() * 40) + 20}%`;
-  return '20-40%';
+  return brands[country?.toLowerCase()]?.[category] || brands[country?.toLowerCase()]?.general || brands.us.general;
 };
 
 // ============================================================
@@ -136,10 +149,10 @@ export default function PremiumReport({ data }) {
   const sentiment = data.sentimentAnalysis || {};
   const keywordStrategy = data.keywordStrategy || {};
 
-  const currency = calc.currency || 'PKR';
-  const symbol = getSymbol(currency);
   const productName = data.productName || 'Product';
   const market = data.market || 'PK';
+  const currencySymbol = getCurrencySymbol(market);
+  const localBrands = getLocalBrands(market, 'general');
 
   const actionScore = data.actionScore || 60;
   const actionLabel = data.actionLabel || 'Test Waters';
@@ -153,9 +166,8 @@ export default function PremiumReport({ data }) {
   const roi = calc.roi || 0;
   const competitorCount = calc.filteredCompetitorCount || 0;
 
-  // Get real brands for the country
-  const realBrands = getRealBrands(market.toLowerCase(), 'general');
-  const topBrands = comp.dominantBrands?.length > 0 ? comp.dominantBrands.slice(0, 5) : realBrands.slice(0, 5);
+  // Use local brands if no competitor data
+  const topBrands = comp.dominantBrands?.length > 0 ? comp.dominantBrands.slice(0, 5) : localBrands.slice(0, 5);
 
   // Pain points
   const painPoints = sentiment.topPainPoints || [];
@@ -185,16 +197,16 @@ export default function PremiumReport({ data }) {
 **Risk Level:** ${data.riskMeter || 'Medium'}
 
 ## 1. MARKET INTEL + PRICING
-- **Recommended Price:** ${symbol}${formatPrice(recommendedPrice)}
-- **Average Price:** ${symbol}${formatPrice(avgPrice)}
-- **Price Range:** ${symbol}${formatPrice(minPrice)} - ${symbol}${formatPrice(maxPrice)}
+- **Recommended Price:** ${currencySymbol}${formatPrice(recommendedPrice)}
+- **Average Price:** ${currencySymbol}${formatPrice(avgPrice)}
+- **Price Range:** ${currencySymbol}${formatPrice(minPrice)} - ${currencySymbol}${formatPrice(maxPrice)}
 - **Total Competitors:** ${competitorCount}
 - **Top 5 Brands:** ${topBrands.join(' • ')}
 - **Market Gap:** ${data.marketGap?.description || 'N/A'}
 
 ## 2. PROFIT CALCULATOR
-Cost ${symbol}${formatPrice(Math.round(avgPrice * 0.4))} + Ads ${symbol}${formatPrice(Math.round(avgPrice * 0.15))} + Fees ${symbol}${formatPrice(Math.round(avgPrice * 0.05))} = Total ${symbol}${formatPrice(Math.round(avgPrice * 0.6))}
-Sell ${symbol}${formatPrice(recommendedPrice)} - Total = Profit ${symbol}${formatPrice(profit)} (ROI: ${roi}%)
+Cost ${currencySymbol}${formatPrice(Math.round(avgPrice * 0.4))} + Ads ${currencySymbol}${formatPrice(Math.round(avgPrice * 0.15))} + Fees ${currencySymbol}${formatPrice(Math.round(avgPrice * 0.05))} = Total ${currencySymbol}${formatPrice(Math.round(avgPrice * 0.6))}
+Sell ${currencySymbol}${formatPrice(recommendedPrice)} - Total = Profit ${currencySymbol}${formatPrice(profit)} (ROI: ${roi}%)
 
 ## 3. CUSTOMER PLAYBOOK
 - **Demographic:** ${playbook.targetDemographic || 'Young adults 18-35'}
@@ -217,7 +229,7 @@ ${data.executiveSummary || 'Analysis complete.'}
   const copyCSV = () => {
     try {
       const headers = ['Product', 'Market', 'Score', 'Price', 'Profit', 'ROI', 'Competitors'];
-      const row = [productName, market, actionScore, `${symbol}${formatPrice(recommendedPrice)}`, `${symbol}${formatPrice(profit)}`, `${roi}%`, competitorCount];
+      const row = [productName, market, actionScore, `${currencySymbol}${formatPrice(recommendedPrice)}`, `${currencySymbol}${formatPrice(profit)}`, `${roi}%`, competitorCount];
       navigator.clipboard.writeText([headers.join(','), row.join(',')].join('\n'));
       toast.success('✅ CSV copied!');
     } catch (e) { toast.error('Failed to copy CSV'); }
@@ -272,7 +284,7 @@ ${data.executiveSummary || 'Analysis complete.'}
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2>
-                <span className="text-[10px] text-gray-500 font-mono">{market} · {currency} · Product Research</span>
+                <span className="text-[10px] text-gray-500 font-mono">{market} · {currencySymbol} · Product Research</span>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -302,31 +314,31 @@ ${data.executiveSummary || 'Analysis complete.'}
             </div>
           </div>
 
-          {/* MARKET INTEL */}
+          {/* MARKET INTEL + PRICING */}
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="MARKET INTEL + PRICING" icon={DollarSign} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Recommended Price</p><p className="text-2xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(recommendedPrice)}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Average Price</p><p className="text-2xl font-bold text-white">{symbol}{formatPrice(avgPrice)}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Price Range</p><p className="text-2xl font-bold text-white">{symbol}{formatPrice(minPrice)} - {symbol}{formatPrice(maxPrice)}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Recommended Price</p><p className="text-2xl font-bold text-[#2dd4bf]">{currencySymbol}{formatPrice(recommendedPrice)}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Average Price</p><p className="text-2xl font-bold text-white">{currencySymbol}{formatPrice(avgPrice)}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Price Range</p><p className="text-2xl font-bold text-white">{currencySymbol}{formatPrice(minPrice)} - {currencySymbol}{formatPrice(maxPrice)}</p></div>
               <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Total Competitors</p><p className="text-2xl font-bold text-white">{competitorCount}</p></div>
             </div>
             <div className="flex flex-wrap gap-2 mb-4"><p className="text-[10px] text-gray-400 font-mono">Top 5 Brands:</p>{topBrands.map((brand, idx) => <span key={idx} className="text-[10px] bg-[#0F172A] text-white px-2 py-0.5 rounded-full border border-white/5">{brand}</span>)}</div>
-            <div className="p-4 bg-[#0F172A] rounded-xl border-l-2 border-[#2dd4bf]"><p className="text-[10px] text-gray-500 font-mono">🎯 Market Gap</p><p className="text-sm text-white font-medium">{data.marketGap?.description || 'Stable market with opportunities.'}</p></div>
+            <div className="p-4 bg-[#0F172A] rounded-xl border-l-2 border-[#2dd4bf]"><p className="text-[10px] text-gray-500 font-mono">🎯 Market Gap</p><p className="text-sm text-white font-medium">{data.marketGap?.description || `Stable market in ${market} with opportunities.`}</p></div>
           </div>
 
           {/* PROFIT CALCULATOR */}
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="PROFIT CALCULATOR" icon={DollarSign} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Cost</p><p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.4))}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">+ Ads</p><p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.15))}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">+ Fees</p><p className="text-xl font-bold text-white">{symbol}{formatPrice(Math.round(avgPrice * 0.05))}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">= Total Cost</p><p className="text-xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(Math.round(avgPrice * 0.6))}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Cost</p><p className="text-xl font-bold text-white">{currencySymbol}{formatPrice(Math.round(avgPrice * 0.4))}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">+ Ads</p><p className="text-xl font-bold text-white">{currencySymbol}{formatPrice(Math.round(avgPrice * 0.15))}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">+ Fees</p><p className="text-xl font-bold text-white">{currencySymbol}{formatPrice(Math.round(avgPrice * 0.05))}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">= Total Cost</p><p className="text-xl font-bold text-[#2dd4bf]">{currencySymbol}{formatPrice(Math.round(avgPrice * 0.6))}</p></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Sell Price</p><p className="text-2xl font-bold text-[#2dd4bf]">{symbol}{formatPrice(recommendedPrice)}</p></div>
-              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">- Total Cost</p><p className={`text-2xl font-bold ${profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}>{symbol}{formatPrice(profit)} (ROI: {roi}%)</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">Sell Price</p><p className="text-2xl font-bold text-[#2dd4bf]">{currencySymbol}{formatPrice(recommendedPrice)}</p></div>
+              <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">- Total Cost</p><p className={`text-2xl font-bold ${profit > 0 ? 'text-[#34d399]' : 'text-red-400'}`}>{currencySymbol}{formatPrice(profit)} (ROI: {roi}%)</p></div>
             </div>
           </div>
 
@@ -344,7 +356,7 @@ ${data.executiveSummary || 'Analysis complete.'}
             </div>
           </div>
 
-          {/* SENTIMENT */}
+          {/* SENTIMENT + REVIEWS */}
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="SENTIMENT + REVIEWS" icon={MessageCircle} />
             <div className="flex flex-wrap items-center gap-6">

@@ -11,9 +11,7 @@ import {
   Database, Brain, Target, Rocket, Crown,
   Star, Gem, Flame, Layers, Cpu, Gauge,
   FileText, Download, Copy, Link as LinkIcon,
-  Calendar, BookOpen, Users, TrendingUp as TrendUp,
-  Percent, Hash, FileJson, Share2, Eye,
-  MessageSquare, Lightbulb, Compass, Radar
+  Calendar, BookOpen, Users
 } from 'lucide-react';
 import LiveStatus from '../../components/LiveStatus';
 import SEOReport from '../../components/SEOReport';
@@ -31,7 +29,6 @@ export default function SEOPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState('overview');
   const resultsRef = useRef(null);
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://market-engine-back-production.up.railway.app';

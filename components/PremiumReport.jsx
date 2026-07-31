@@ -317,7 +317,7 @@ export default function PremiumReport({ data }) {
       tasks: ['Product sampling', 'Photography', 'Social setup', 'Email capture']
     },
     month2: {
-      weeks: ['Run ads ₹${Math.round(avgPrice * 0.5)}/day', '5 Micro-influencers', 'Collect 20 reviews', 'Optimize listing'],
+      weeks: [`Run ads ₹${Math.round(avgPrice * 0.5)}/day`, '5 Micro-influencers', 'Collect 20 reviews', 'Optimize listing'],
       tasks: ['Influencer outreach', 'Review collection', 'Ad testing', 'Bundle creation']
     },
     month3: {
@@ -340,7 +340,7 @@ export default function PremiumReport({ data }) {
   const adCreatives = [
     { hook: 'Tired of tangled wires? Try these!', thumbnail: 'Before/After comparison' },
     { hook: '20 Hours of battery life - Is it true?', thumbnail: 'Battery meter showing 100%' },
-    { hook: 'Under ₹${Math.round(avgPrice)} - Are they any good?', thumbnail: 'Unboxing + surprised face' }
+    { hook: `Under ₹${Math.round(avgPrice)} - Are they any good?`, thumbnail: 'Unboxing + surprised face' }
   ];
 
   // Metrics to Track
@@ -616,7 +616,10 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
               <p className="text-[10px] text-gray-500 font-mono">📊 Insight 1</p>
-              <p className="text-sm text-gray-300">Budget-friendly products (< {symbol}{formatPrice(Math.round(avgPrice * 0.7))}) have 2x higher sales volume.</p>
+              <p className="text-sm text-gray-300">
+                Budget-friendly products ({'<'} {symbol}
+                {formatPrice(Math.round(avgPrice * 0.7))}) have 2x higher sales volume.
+              </p>
             </div>
             <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
               <p className="text-[10px] text-gray-500 font-mono">📊 Insight 2</p>

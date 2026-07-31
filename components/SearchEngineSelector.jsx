@@ -19,7 +19,8 @@ import {
   Layers,
   Compass,
   Radar,
-  Activity
+  Activity,
+  ArrowRight  // ✅ ADD THIS
 } from 'lucide-react';
 
 const SearchEngineSelector = ({ activeEngine, setActiveEngine }) => {

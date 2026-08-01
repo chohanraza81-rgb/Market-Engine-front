@@ -102,8 +102,8 @@ export default function SEOReport({ data }) {
   const dataTimestamp = seoData.dataTimestamp || new Date().toISOString();
 
   // Core metrics
-  const seoScore = seoData.seoScore || 0;
-  const actionScore = seoData.actionScore || 0;
+  const seoScore = seoData.seoScore ?? 0;
+  const actionScore = seoData.actionScore ?? 0;
   const actionLabel = seoData.actionLabel || 'N/A';
   const timeline = seoData.estimatedTimeline || 'N/A';
   const summary = seoData.executiveSummary || '';
@@ -113,7 +113,7 @@ export default function SEOReport({ data }) {
   const primaryKeywords = keywordStrategy.primaryKeywords || [];
   const secondaryKeywords = keywordStrategy.secondaryKeywords || [];
   const longTailKeywords = keywordStrategy.longTailKeywords || [];
-  const keywordData = keywordStrategy.keywordData || []; // array of {keyword, volume, difficulty, cpc, trend}
+  const keywordData = keywordStrategy.keywordData || [];
 
   // Competitor data
   const competitorData = seoData.competitorData || [];
@@ -130,7 +130,7 @@ export default function SEOReport({ data }) {
   // SERP analysis
   const serpAnalysis = seoData.serpAnalysis || {};
 
-  // Backlink targets
+  // Backlink targets (including topic)
   const backlinkTargets = seoData.backlinkTargets || [];
 
   // Final verdict
@@ -179,7 +179,7 @@ E-commerce: ${serpAnalysis.ecommerce || 'N/A'}, Blogs: ${serpAnalysis.blogs || '
 Featured Snippet Chance: ${serpAnalysis.featuredSnippet || 'N/A'}
 
 ## 7. BACKLINK OUTREACH LIST
-${backlinkTargets.map(b => `- ${b.name}: DA ${b.da}, ${b.type}`).join('\n')}
+${backlinkTargets.map(b => `- ${b.name}: DA ${b.da}, ${b.type}, Topic: ${b.topic || 'N/A'}`).join('\n')}
 
 ## 8. FINAL VERDICT
 ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
@@ -194,7 +194,6 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
 
   const copyCSV = () => {
     try {
-      // Export keyword data as CSV
       const headers = ['Keyword', 'Volume', 'Difficulty', 'CPC', 'Trend'];
       const rows = keywordData.length > 0 ? keywordData.map(k => [k.keyword, k.volume, k.difficulty, k.cpc, k.trend]) : primaryKeywords.map(k => [k, '', '', '', '']);
       const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
@@ -437,7 +436,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
           </div>
         )}
 
-        {/* BACKLINK OUTREACH */}
+        {/* BACKLINK OUTREACH LIST — 4 COLUMNS */}
         {backlinkTargets.length > 0 && (
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="BACKLINK OUTREACH LIST" icon={Link2} />
@@ -457,7 +456,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
                       <td className="py-2 px-2 text-white font-medium">{item.name}</td>
                       <td className="py-2 px-2 text-yellow-400">{item.da}</td>
                       <td className="py-2 px-2 text-[#2dd4bf]">{item.type}</td>
-                      <td className="py-2 px-2 text-gray-300 text-[10px]">{item.topic}</td>
+                      <td className="py-2 px-2 text-gray-300 text-[10px]">{item.topic || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>

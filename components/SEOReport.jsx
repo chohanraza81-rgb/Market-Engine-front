@@ -87,62 +87,57 @@ const SectionDivider = ({ title, icon: Icon }) => (
 );
 
 // ============================================================
-// MAIN COMPONENT — NO FALLBACK DATA, ONLY REAL PROPS
+// MAIN COMPONENT
 // ============================================================
 export default function SEOReport({ data }) {
   const reportRef = useRef(null);
-
-  // ✅ If no data at all, show nothing
   if (!data) return null;
 
-  // Extract real data from props (no fallback arrays)
+  // Extract data from backend response
   const seoData = data.seoData || data;
   const productName = seoData.productName || data.productName || 'Product';
   const market = seoData.market || data.market || 'N/A';
-  const currency = seoData.currency || 'PKR';
+  const currency = seoData.currency || 'USD';
   const symbol = getSymbol(currency);
   const dataTimestamp = seoData.dataTimestamp || new Date().toISOString();
 
-  const seoScore = seoData.seoScore ?? 0;
-  const actionScore = seoData.actionScore ?? 0;
+  // Core metrics
+  const seoScore = seoData.seoScore || 0;
+  const actionScore = seoData.actionScore || 0;
   const actionLabel = seoData.actionLabel || 'N/A';
   const timeline = seoData.estimatedTimeline || 'N/A';
   const summary = seoData.executiveSummary || '';
 
-  // Keyword strategy — use exactly what's provided, no defaults
+  // Keyword strategy
   const keywordStrategy = seoData.keywordStrategy || {};
-  const contentStrategy = seoData.contentStrategy || {};
-  const backlinkStrategy = seoData.backlinkStrategy || {};
-  const competitorGap = seoData.competitorGapAnalysis || {};
-
-  // Real keyword data
   const primaryKeywords = keywordStrategy.primaryKeywords || [];
   const secondaryKeywords = keywordStrategy.secondaryKeywords || [];
   const longTailKeywords = keywordStrategy.longTailKeywords || [];
+  const keywordData = keywordStrategy.keywordData || []; // array of {keyword, volume, difficulty, cpc, trend}
 
   // Competitor data
-  const topCompetitors = competitorGap.topCompetitors || [];
+  const competitorData = seoData.competitorData || [];
 
   // Content calendar
-  const contentCalendar = contentStrategy.contentCalendar || {};
+  const contentCalendar = seoData.contentCalendar || {};
 
-  // Earning data — must come from real data or be empty
+  // Earning data
   const earningData = seoData.earningData || [];
 
   // Keyword clusters
   const keywordClusters = seoData.keywordClusters || [];
 
-  // Backlink targets
-  const backlinkTargets = backlinkStrategy.targetSites || [];
-
-  // SERP Analysis
+  // SERP analysis
   const serpAnalysis = seoData.serpAnalysis || {};
+
+  // Backlink targets
+  const backlinkTargets = seoData.backlinkTargets || [];
 
   // Final verdict
   const finalVerdict = seoData.finalVerdict || [];
 
   // ============================================================
-  // MARKDOWN COPY — ONLY REAL DATA
+  // COPY FUNCTIONS
   // ============================================================
   const copyMarkdown = () => {
     try {
@@ -155,50 +150,53 @@ export default function SEOReport({ data }) {
 **Data Timestamp:** ${new Date(dataTimestamp).toLocaleString()}
 
 ## 1. KEYWORD STRATEGY
-**Primary Keywords:** ${primaryKeywords.join(', ') || 'N/A'}
-**Secondary Keywords:** ${secondaryKeywords.join(', ') || 'N/A'}
-**Long-tail Keywords:** ${longTailKeywords.join(', ') || 'N/A'}
+**Primary Keywords:** ${primaryKeywords.join(', ')}
+**Secondary Keywords:** ${secondaryKeywords.join(', ')}
+**Long-tail Keywords:** ${longTailKeywords.join(', ')}
+**Keyword Difficulty:** ${keywordStrategy.keywordDifficulty || 'N/A'}
+**Search Volume:** ${keywordStrategy.searchVolume || 'N/A'}
 
-## 2. TOP COMPETITORS
-${topCompetitors.map(c => `- ${c}`).join('\n') || 'N/A'}
+### Keyword Data Table
+${keywordData.map(k => `- ${k.keyword}: ${k.volume} vol, ${k.difficulty} diff, ${k.cpc} CPC, ${k.trend}`).join('\n')}
+
+## 2. TOP 5 COMPETITORS
+${competitorData.map(c => `- ${c.name}: DR ${c.dr}, Traffic ${c.traffic}`).join('\n')}
 
 ## 3. 90 DAY CONTENT CALENDAR
 ${Object.entries(contentCalendar).map(([month, weeks]) => {
   const weekKeys = Object.keys(weeks);
-  return `**${month.toUpperCase()}:** ${weekKeys.map(w => weeks[w]?.join(' | ') || 'N/A').join(' | ')}`;
-}).join('\n') || 'N/A'}
+  return `**${month.toUpperCase()}:** ${weekKeys.map(w => weeks[w]?.join(' | ')).join(' | ')}`;
+}).join('\n')}
 
-## 4. EARNING DATA
-${earningData.map(e => `- ${e.source}: ${e.earning}`).join('\n') || 'N/A'}
+## 4. EARNING CALCULATOR (${symbol})
+${earningData.map(e => `- ${e.source}: ${e.earning}`).join('\n')}
 
 ## 5. KEYWORD CLUSTERS
-${keywordClusters.map(c => `- ${c.name}: ${c.keywords?.join(', ') || 'N/A'}`).join('\n') || 'N/A'}
+${keywordClusters.map(c => `- ${c.name}: ${c.keywords.join(', ')}`).join('\n')}
 
 ## 6. SERP ANALYSIS
 E-commerce: ${serpAnalysis.ecommerce || 'N/A'}, Blogs: ${serpAnalysis.blogs || 'N/A'}, Videos: ${serpAnalysis.videos || 'N/A'}
+Featured Snippet Chance: ${serpAnalysis.featuredSnippet || 'N/A'}
 
-## 7. BACKLINK PLAN
-${backlinkTargets.map(b => `- ${b}`).join('\n') || 'N/A'}
+## 7. BACKLINK OUTREACH LIST
+${backlinkTargets.map(b => `- ${b.name}: DA ${b.da}, ${b.type}`).join('\n')}
 
-## FINAL VERDICT
-${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
+## 8. FINAL VERDICT
+${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n')}
 `;
       navigator.clipboard.writeText(md);
       toast.success('✅ Markdown copied!');
     } catch (e) {
-      console.error('Markdown copy error:', e);
+      console.error(e);
       toast.error('Failed to copy Markdown');
     }
   };
 
-  // ============================================================
-  // OTHER EXPORT FUNCTIONS
-  // ============================================================
   const copyCSV = () => {
     try {
+      // Export keyword data as CSV
       const headers = ['Keyword', 'Volume', 'Difficulty', 'CPC', 'Trend'];
-      // Only if we have keyword data, otherwise empty
-      const rows = (keywordStrategy.keywordData || []).map(k => [k.keyword, k.volume, k.difficulty, k.cpc, k.trend]);
+      const rows = keywordData.length > 0 ? keywordData.map(k => [k.keyword, k.volume, k.difficulty, k.cpc, k.trend]) : primaryKeywords.map(k => [k, '', '', '', '']);
       const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
       navigator.clipboard.writeText(csv);
       toast.success('✅ CSV copied!');
@@ -253,7 +251,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
             </div>
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">{productName}</h2>
-              <span className="text-[10px] text-gray-500 font-mono">{market} · {currency} · SEO Report</span>
+              <span className="text-[10px] text-gray-500 font-mono">{market} · {currency}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono">
@@ -273,9 +271,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
             <ProgressRing score={seoScore} label="SEO" color={actionColor} />
             <div>
               <p className="text-[10px] text-gray-400 font-mono tracking-widest">SEO SCORE</p>
-              <p className="text-2xl font-bold" style={{ color: actionColor }}>
-                {seoScore >= 70 ? 'Good' : seoScore >= 50 ? 'Needs Work' : 'Needs Help'}
-              </p>
+              <p className="text-2xl font-bold" style={{ color: actionColor }}>{seoScore >= 70 ? 'Good' : seoScore >= 50 ? 'Needs Work' : 'Needs Help'}</p>
               <p className="text-sm text-gray-300 max-w-lg">{summary || 'No summary available.'}</p>
             </div>
           </div>
@@ -286,38 +282,74 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
           </div>
         </div>
 
-        {/* KEYWORD STRATEGY */}
-        <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="KEYWORD STRATEGY" icon={Hash} />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-400 font-mono">Primary Keywords</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {primaryKeywords.length > 0 ? primaryKeywords.map((kw, i) => <span key={i} className="text-[9px] bg-[#2dd4bf]/10 text-[#2dd4bf] px-2 py-0.5 rounded-full border border-[#2dd4bf]/20">{kw}</span>) : <span className="text-sm text-gray-500">No data</span>}
-              </div>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-400 font-mono">Secondary Keywords</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {secondaryKeywords.length > 0 ? secondaryKeywords.map((kw, i) => <span key={i} className="text-[9px] bg-[#a78bfa]/10 text-[#a78bfa] px-2 py-0.5 rounded-full border border-[#a78bfa]/20">{kw}</span>) : <span className="text-sm text-gray-500">No data</span>}
-              </div>
-            </div>
-            <div className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
-              <p className="text-[10px] text-gray-400 font-mono">Long-tail Keywords</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {longTailKeywords.length > 0 ? longTailKeywords.map((kw, i) => <span key={i} className="text-[9px] bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/20">{kw}</span>) : <span className="text-sm text-gray-500">No data</span>}
-              </div>
+        {/* KEYWORD DATA TABLE */}
+        {keywordData.length > 0 && (
+          <div className="cyber-card rounded-2xl p-6">
+            <SectionDivider title="KEYWORD DATA" icon={Hash} />
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-[#2dd4bf]/20">
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Keyword</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Volume</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Difficulty</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">CPC ({symbol})</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Trend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keywordData.map((item, idx) => (
+                    <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition">
+                      <td className="py-2 px-2 text-white font-medium">{item.keyword}</td>
+                      <td className="py-2 px-2 text-gray-300">{item.volume}</td>
+                      <td className="py-2 px-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-300">{item.difficulty}</span>
+                          <div className="w-12 h-1.5 bg-[#1E293B] rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${item.difficulty}%`, backgroundColor: item.difficulty > 65 ? '#ef4444' : item.difficulty > 40 ? '#f59e0b' : '#34d399' }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 text-gray-300">{item.cpc}</td>
+                      <td className="py-2 px-2 text-green-400">{item.trend}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* TOP COMPETITORS */}
-        <div className="cyber-card rounded-2xl p-6">
-          <SectionDivider title="TOP COMPETITORS" icon={Users} />
-          <div className="flex flex-wrap gap-2">
-            {topCompetitors.length > 0 ? topCompetitors.map((c, i) => <span key={i} className="text-xs bg-[#0F172A] text-white px-3 py-1.5 rounded-full border border-white/5">{c}</span>) : <span className="text-sm text-gray-500">No competitor data available.</span>}
+        {/* COMPETITORS TABLE */}
+        {competitorData.length > 0 && (
+          <div className="cyber-card rounded-2xl p-6">
+            <SectionDivider title="TOP 5 COMPETITORS" icon={Users} />
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-[#2dd4bf]/20">
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Website</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Traffic</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">DR</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Weakness</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Opportunity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competitorData.map((item, idx) => (
+                    <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition">
+                      <td className="py-2 px-2 text-white font-medium">{item.name}</td>
+                      <td className="py-2 px-2 text-gray-300">{item.traffic}</td>
+                      <td className="py-2 px-2 text-yellow-400">{item.dr}</td>
+                      <td className="py-2 px-2 text-gray-300"><ul className="list-disc list-inside text-red-300 text-[10px]">{item.weaknesses.slice(0, 2).map((w, i) => <li key={i}>{w}</li>)}</ul></td>
+                      <td className="py-2 px-2 text-green-300 text-[10px]">{item.opportunity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* KEYWORD CLUSTERS */}
         {keywordClusters.length > 0 && (
@@ -328,7 +360,7 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
                 <div key={idx} className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
                   <h4 className="text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-2">{cluster.name}</h4>
                   <ul className="list-disc list-inside text-xs text-gray-300 space-y-0.5">
-                    {cluster.keywords?.map((kw, i) => <li key={i}>{kw}</li>) || <li>No keywords</li>}
+                    {cluster.keywords?.map((kw, i) => <li key={i}>{kw}</li>)}
                   </ul>
                 </div>
               ))}
@@ -336,7 +368,26 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
           </div>
         )}
 
-        {/* MONEY CALCULATOR — ONLY IF DATA EXISTS */}
+        {/* CONTENT CALENDAR */}
+        {Object.keys(contentCalendar).length > 0 && (
+          <div className="cyber-card rounded-2xl p-6">
+            <SectionDivider title="90 DAY CONTENT CALENDAR" icon={Calendar} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(contentCalendar).map(([month, weeks]) => (
+                <div key={month} className="bg-[#0F172A] p-4 rounded-xl border border-[#2dd4bf]/5">
+                  <h4 className="text-[10px] text-[#2dd4bf] font-mono uppercase tracking-wider mb-2">{month.toUpperCase()}</h4>
+                  <ul className="list-disc list-inside text-xs text-gray-300 space-y-0.5">
+                    {Object.entries(weeks).map(([week, topics]) => (
+                      <li key={week}><span className="text-[#2dd4bf]">{week}:</span> {topics?.join(' | ') || 'N/A'}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MONEY CALCULATOR */}
         {earningData.length > 0 && (
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="MONEY CALCULATOR" icon={DollarSign} />
@@ -364,63 +415,57 @@ ${finalVerdict.map((v, i) => `${i+1}. ${v}`).join('\n') || 'N/A'}
             </div>
             <div className="mt-4 p-4 bg-gradient-to-r from-[#2dd4bf]/10 to-[#a78bfa]/10 rounded-xl border border-[#2dd4bf]/20">
               <p className="text-[10px] text-gray-500 font-mono">💰 Total Est. Month 4 Earnings</p>
-              <p className="text-2xl font-bold text-[#2dd4bf]">107,000 {symbol}</p>
+              <p className="text-2xl font-bold text-[#2dd4bf]">
+                {earningData.reduce((sum, e) => sum + parseInt(e.earning?.replace(/[^0-9]/g,'') || 0), 0).toLocaleString()} {symbol}
+              </p>
             </div>
           </div>
         )}
 
-        {/* SERP + BACKLINK */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* SERP ANALYSIS */}
+        {(serpAnalysis.ecommerce || serpAnalysis.blogs || serpAnalysis.videos) && (
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="SERP ANALYSIS" icon={Search} />
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center">
-                <p className="text-[10px] text-gray-500 font-mono">E-commerce</p>
-                <p className="text-2xl font-bold text-[#2dd4bf]">{serpAnalysis.ecommerce ?? 'N/A'}</p>
-              </div>
-              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center">
-                <p className="text-[10px] text-gray-500 font-mono">Blogs</p>
-                <p className="text-2xl font-bold text-[#a78bfa]">{serpAnalysis.blogs ?? 'N/A'}</p>
-              </div>
-              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center">
-                <p className="text-[10px] text-gray-500 font-mono">Videos</p>
-                <p className="text-2xl font-bold text-yellow-400">{serpAnalysis.videos ?? 'N/A'}</p>
-              </div>
-              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center">
-                <p className="text-[10px] text-gray-500 font-mono">Forums</p>
-                <p className="text-2xl font-bold text-red-400">{serpAnalysis.forums ?? 'N/A'}</p>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center"><p className="text-[10px] text-gray-500 font-mono">E-commerce</p><p className="text-2xl font-bold text-[#2dd4bf]">{serpAnalysis.ecommerce || 'N/A'}</p></div>
+              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center"><p className="text-[10px] text-gray-500 font-mono">Blogs</p><p className="text-2xl font-bold text-[#a78bfa]">{serpAnalysis.blogs || 'N/A'}</p></div>
+              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center"><p className="text-[10px] text-gray-500 font-mono">Videos</p><p className="text-2xl font-bold text-yellow-400">{serpAnalysis.videos || 'N/A'}</p></div>
+              <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5 text-center"><p className="text-[10px] text-gray-500 font-mono">Forums</p><p className="text-2xl font-bold text-red-400">{serpAnalysis.forums || 'N/A'}</p></div>
             </div>
-            {serpAnalysis.winningFormat && <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">🏆 Winning Format</p><p className="text-sm text-white font-medium">{serpAnalysis.winningFormat}</p></div>}
-            {serpAnalysis.featuredSnippet && <div className="mt-3 bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">⭐ Featured Snippet Chance</p><p className="text-sm text-white font-medium">{serpAnalysis.featuredSnippet}</p><p className="text-[10px] text-gray-400 mt-1">{serpAnalysis.howToGetSnippet || ''}</p></div>}
+            <div className="bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">🏆 Winning Format</p><p className="text-sm text-white font-medium">{serpAnalysis.winningFormat || 'N/A'}</p></div>
+            <div className="mt-3 bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5"><p className="text-[10px] text-gray-500 font-mono">⭐ Featured Snippet Chance</p><p className="text-sm text-white font-medium">{serpAnalysis.featuredSnippet || 'N/A'}</p><p className="text-[10px] text-gray-400 mt-1">{serpAnalysis.howToGetSnippet || ''}</p></div>
           </div>
+        )}
 
+        {/* BACKLINK OUTREACH */}
+        {backlinkTargets.length > 0 && (
           <div className="cyber-card rounded-2xl p-6">
             <SectionDivider title="BACKLINK OUTREACH LIST" icon={Link2} />
-            <div className="overflow-y-auto max-h-72">
+            <div className="overflow-x-auto">
               <table className="w-full text-xs font-mono">
                 <thead>
                   <tr className="border-b border-[#2dd4bf]/20">
-                    <th className="text-left py-1.5 px-2 text-gray-400 font-medium">Website</th>
-                    <th className="text-left py-1.5 px-2 text-gray-400 font-medium">DA</th>
-                    <th className="text-left py-1.5 px-2 text-gray-400 font-medium">Type</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Website</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">DA</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Type</th>
+                    <th className="text-left py-2 px-2 text-gray-400 font-medium">Topic</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {backlinkTargets.length > 0 ? backlinkTargets.map((item, idx) => (
+                  {backlinkTargets.map((item, idx) => (
                     <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition">
-                      <td className="py-1.5 px-2 text-white font-medium">{item}</td>
-                      <td className="py-1.5 px-2 text-yellow-400">—</td>
-                      <td className="py-1.5 px-2 text-[#2dd4bf]">—</td>
+                      <td className="py-2 px-2 text-white font-medium">{item.name}</td>
+                      <td className="py-2 px-2 text-yellow-400">{item.da}</td>
+                      <td className="py-2 px-2 text-[#2dd4bf]">{item.type}</td>
+                      <td className="py-2 px-2 text-gray-300 text-[10px]">{item.topic}</td>
                     </tr>
-                  )) : <tr><td colSpan="3" className="text-center text-gray-500 py-2">No backlink targets available.</td></tr>}
+                  ))}
                 </tbody>
               </table>
             </div>
-            {backlinkTargets.length > 0 && (
-              <div className="mt-3 p-3 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
-                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Mail size={12} /> Outreach Email Template</p>
-                <div className="mt-1 p-2 bg-[#080B12] rounded-lg border border-white/5 font-mono text-[10px] text-gray-300 whitespace-pre-wrap">
+            <div className="mt-3 p-3 bg-[#0F172A] rounded-xl border border-[#2dd4bf]/5">
+              <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Mail size={12} /> Outreach Email Template</p>
+              <div className="mt-1 p-2 bg-[#080B12] rounded-lg border border-white/5 font-mono text-[10px] text-gray-300 whitespace-pre-wrap">
 {`Subject: Quick Article Idea for [Website Name]
 
 Hi [Name],
@@ -437,16 +482,15 @@ Let me know if interested!
 Cheers,
 [Your Name]
 [Your Website URL]`}
-                </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* FINAL VERDICT */}
-        <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
-          <SectionDivider title="FINAL VERDICT" icon={Award} />
-          {finalVerdict.length > 0 ? (
+        {finalVerdict.length > 0 && (
+          <div className="cyber-card rounded-2xl p-6 border-l-4 border-l-[#2dd4bf]">
+            <SectionDivider title="FINAL VERDICT" icon={Award} />
             <div className="space-y-3">
               {finalVerdict.map((item, idx) => (
                 <div key={idx} className="flex items-start gap-3 bg-[#0F172A] p-3 rounded-xl border border-[#2dd4bf]/5">
@@ -455,10 +499,8 @@ Cheers,
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-gray-500">No verdict available.</p>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* FOOTER */}
         <div className="flex items-center justify-between text-[9px] text-gray-600 font-mono border-t border-[#2dd4bf]/10 pt-4">
